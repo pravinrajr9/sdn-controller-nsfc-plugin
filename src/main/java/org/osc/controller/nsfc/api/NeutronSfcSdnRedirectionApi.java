@@ -16,12 +16,11 @@
  *******************************************************************************/
 package org.osc.controller.nsfc.api;
 
-import static java.util.Arrays.asList;
+import static java.util.Arrays.*;
 
 import java.util.List;
 
 import javax.persistence.EntityManager;
-import javax.persistence.Query;
 
 import org.apache.log4j.Logger;
 import org.osc.controller.nsfc.entities.InspectionHookEntity;
@@ -238,14 +237,17 @@ public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
             LOG.warn("Attempt to remove Inspection Hooks for null Inspected Port");
             return;
         }
+        if (inspectedPort.getElementId() == null) {
+            LOG.warn("Attempt to remove Inspection Hooks for Inspected Port with no id");
+            return;
+        }
+
+        String inspectedId = inspectedPort.getElementId();
 
         this.txControl.required(() -> {
-            Query q = this.em.createQuery("FROM InspectionHookEntity WHERE inspected_port_fk = :portId");
-            String portId = (inspectedPort != null ? inspectedPort.getElementId() : null);
-            q.setParameter("portId", portId);
 
-            @SuppressWarnings("unchecked")
-            List<InspectionHookEntity> results = q.getResultList();
+
+            List<InspectionHookEntity> results = this.utils.txInspectionHookEntitiesByInspected(inspectedId);
 
             for (InspectionHookEntity inspectionHookEntity : results) {
                 this.utils.removeSingleInspectionHook(inspectionHookEntity.getHookId());
