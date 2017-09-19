@@ -16,12 +16,12 @@
  *******************************************************************************/
 package org.osc.controller.sfc;
 
-import static java.util.Arrays.asList;
-import static java.util.Collections.singletonMap;
+import static java.util.Arrays.*;
+import static java.util.Collections.*;
 import static org.junit.Assert.*;
 import static org.ops4j.pax.exam.CoreOptions.*;
-import static org.osc.sdk.controller.FailurePolicyType.NA;
-import static org.osc.sdk.controller.TagEncapsulationType.VLAN;
+import static org.osc.sdk.controller.FailurePolicyType.*;
+import static org.osc.sdk.controller.TagEncapsulationType.*;
 import static org.osgi.service.jdbc.DataSourceFactory.*;
 
 import java.io.File;
@@ -37,7 +37,9 @@ import javax.sql.DataSource;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.ops4j.pax.exam.Option;
 import org.ops4j.pax.exam.junit.PaxExam;
@@ -93,6 +95,9 @@ public class OSGiIntegrationTest {
 
     @Inject
     SdnControllerApi api;
+
+    @Rule
+    public ExpectedException exception = ExpectedException.none();
 
     private TransactionControl txControl;
     private EntityManagerFactoryBuilder builder;
@@ -217,30 +222,26 @@ public class OSGiIntegrationTest {
     private void setupDataObjects() {
         this.inspectionHook = new InspectionHookEntity();
 
-        this.inspectionPort = new InspectionPortEntity();
-
         this.ingress = new NetworkElementEntity();
-        this.egress = new NetworkElementEntity();
-        this.inspected = new NetworkElementEntity();
-
         this.ingress.setElementId(IMAC1_STR + IMAC1_STR);
-        this.egress.setElementId(EMAC1_STR + EMAC1_STR);
-        this.inspected.setElementId("iNsPeCtEdPoRt");
-
         this.ingress.setMacAddresses(asList(IMAC1_STR, IMAC2_STR));
         this.ingress.setPortIPs(asList(IADDR1_STR, IADDR2_STR));
 
+        this.egress = new NetworkElementEntity();
+        this.egress.setElementId(EMAC1_STR + EMAC1_STR);
         this.egress.setMacAddresses(asList(EMAC1_STR, EMAC2_STR));
         this.egress.setPortIPs(asList(EADDR1_STR, EADDR2_STR));
 
+        this.inspected = new NetworkElementEntity();
+        this.inspected.setElementId("iNsPeCtEdPoRt");
         this.inspected.setMacAddresses(asList(INSPMAC1_STR));
 
-        this.inspected.setInspectionHook(this.inspectionHook);
-
+        this.inspectionPort = new InspectionPortEntity();
         this.inspectionPort.setIngressPort(this.ingress);
         this.inspectionPort.setEgressPort(this.egress);
-        this.inspectionHook.setInspectedPort(this.inspected);
 
+        this.inspected.setInspectionHook(this.inspectionHook);
+        this.inspectionHook.setInspectedPort(this.inspected);
         this.inspectionHook.setInspectionPort(this.inspectionPort);
     }
 
@@ -381,7 +382,7 @@ public class OSGiIntegrationTest {
     public void testUtilsRemoveSingleInspectionHook() throws Exception {
         this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
 
-        InspectionPortEntity inspectionPortElement = new InspectionPortEntity(null, this.ingress, this.egress);
+        InspectionPortEntity inspectionPortElement = new InspectionPortEntity(null, null, this.ingress, this.egress);
 
         // expected before installInspectionHook
         Element registeredElement = this.redirApi.registerInspectionPort(inspectionPortElement);
@@ -419,12 +420,12 @@ public class OSGiIntegrationTest {
         RedirectionApiUtils utils = new RedirectionApiUtils(this.em, this.txControl);
         this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
 
-        InspectionPortElement inspectionPortElement = new InspectionPortEntity(null, this.ingress, this.egress);
+        InspectionPortElement inspectionPortElement = new InspectionPortEntity(null, null, this.ingress, this.egress);
         inspectionPortElement = (InspectionPortElement) this.redirApi.registerInspectionPort(inspectionPortElement);
 
         // Here we are mostly afraid of LazyInitializationException
         assertNotNull(inspectionPortElement.getElementId());
-        inspectionPortElement.getParentId();
+        assertNotNull(inspectionPortElement.getParentId());
         assertNotNull(inspectionPortElement.getIngressPort());
         assertNotNull(inspectionPortElement.getEgressPort());
         assertNotNull(inspectionPortElement.getEgressPort().getMacAddresses());
@@ -458,8 +459,7 @@ public class OSGiIntegrationTest {
                 foundInspPortElement.getEgressPort().getElementId());
         assertEquals(inspectionPortElement.getElementId(), foundInspPortElement.getElementId());
 
-        assertEquals(null, inspectionPortElement.getParentId());
-        assertEquals(null, foundInspPortElement.getParentId());
+        assertEquals(foundInspPortElement.getParentId(), inspectionPortElement.getParentId());
     }
 
     @Test
@@ -472,12 +472,13 @@ public class OSGiIntegrationTest {
             return null;
         });
 
-        InspectionPortElement inspectionPortElement = new InspectionPortEntity(null, this.ingress, this.egress);
+        InspectionPortElement inspectionPortElement = new InspectionPortEntity(null, null, this.ingress, this.egress);
 
         // ... and the test
         inspectionPortElement = (InspectionPortElement) this.redirApi.registerInspectionPort(inspectionPortElement);
         assertNotNull(inspectionPortElement);
         assertNotNull(inspectionPortElement.getElementId());
+        assertNotNull(inspectionPortElement.getParentId());
         assertNotNull(inspectionPortElement.getIngressPort());
         assertNotNull(inspectionPortElement.getEgressPort());
         assertEquals(this.ingress.getElementId(), inspectionPortElement.getIngressPort().getElementId());
@@ -485,10 +486,39 @@ public class OSGiIntegrationTest {
     }
 
     @Test
+    public void testApiRegisterInspectionPortWithParentId() throws Exception {
+        this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
+
+        InspectionPortElement inspectionPortElement = new InspectionPortEntity(null, null, this.ingress, this.egress);
+        Element result = this.redirApi.registerInspectionPort(inspectionPortElement);
+
+        assertNotNull(result.getParentId());
+        String portGroupId = result.getParentId();
+
+        InspectionPortElement inspectionPortElement2 = new InspectionPortEntity(null, portGroupId,
+                new NetworkElementEntity("IngressFoo", asList("IngressMac"), asList("IngressIP"), null),
+                new NetworkElementEntity("EgressFoo", asList("EgressMac"), asList("EgressIP"), null));
+
+        Element result2 = this.redirApi.registerInspectionPort(inspectionPortElement2);
+
+        assertEquals(portGroupId, result2.getParentId());
+    }
+
+    @Test
+    public void testApiRegisterInspectionPortWithInvalidParentId() throws Exception {
+        this.exception.expect(IllegalArgumentException.class);
+
+        this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
+
+        InspectionPortElement inspectionPortElement = new InspectionPortEntity(null, "fooportgroup", this.ingress, this.egress);
+        this.redirApi.registerInspectionPort(inspectionPortElement);
+    }
+
+    @Test
     public void testApiInstallInspectionHook() throws Exception {
         this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
 
-        InspectionPortEntity inspectionPortElement = new InspectionPortEntity(null, this.ingress, this.egress);
+        InspectionPortEntity inspectionPortElement = new InspectionPortEntity(null, null, this.ingress, this.egress);
 
         // expected before installInspectionHook
         this.redirApi.registerInspectionPort(inspectionPortElement);
@@ -524,7 +554,7 @@ public class OSGiIntegrationTest {
     public void testApiGetInspectionHook() throws Exception {
         this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
 
-        InspectionPortEntity inspectionPortElement = new InspectionPortEntity(null, this.ingress, this.egress);
+        InspectionPortEntity inspectionPortElement = new InspectionPortEntity(null, null, this.ingress, this.egress);
 
         InspectionHookElement foundInspectionHook = this.redirApi.getInspectionHook(this.inspected, inspectionPortElement);
         assertEquals("Inspection Hook already in the database before installed!", null, foundInspectionHook);
@@ -549,7 +579,7 @@ public class OSGiIntegrationTest {
     public void testApiRemoveInspectionHookByPorts_InspectionHookDisappears() throws Exception {
         this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
 
-        InspectionPortEntity inspectionPortElement = new InspectionPortEntity(null, this.ingress, this.egress);
+        InspectionPortEntity inspectionPortElement = new InspectionPortEntity(null, null, this.ingress, this.egress);
 
         // expected before installInspectionHook
         Element registeredElement = this.redirApi.registerInspectionPort(inspectionPortElement);
@@ -585,7 +615,7 @@ public class OSGiIntegrationTest {
     public void testApiRemoveInspectionHookById_InspectionHookDisappears() throws Exception {
         this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
 
-        InspectionPortEntity inspectionPortElement = new InspectionPortEntity(null, this.ingress, this.egress);
+        InspectionPortEntity inspectionPortElement = new InspectionPortEntity(null, null, this.ingress, this.egress);
 
         // expected before installInspectionHook
         Element registeredElement = this.redirApi.registerInspectionPort(inspectionPortElement);
@@ -620,7 +650,7 @@ public class OSGiIntegrationTest {
     public void testApiRemoveAllInspectionHooks_InspectionHookDisappears() throws Exception {
         this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
 
-        InspectionPortEntity inspectionPortElement = new InspectionPortEntity(null, this.ingress, this.egress);
+        InspectionPortEntity inspectionPortElement = new InspectionPortEntity(null, null, this.ingress, this.egress);
 
         // expected before installInspectionHook
         Element registeredElement = this.redirApi.registerInspectionPort(inspectionPortElement);
@@ -668,7 +698,7 @@ public class OSGiIntegrationTest {
     public void testApiRemoveAllInspectionHooks_InspectedPortDisappears() throws Exception {
         this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
 
-        InspectionPortEntity inspectionPortElement = new InspectionPortEntity(null, this.ingress, this.egress);
+        InspectionPortEntity inspectionPortElement = new InspectionPortEntity(null, null, this.ingress, this.egress);
 
         String inspectedId = this.inspected.getElementId();
         assertNotNull(inspectedId);
@@ -708,7 +738,7 @@ public class OSGiIntegrationTest {
     public void testApiRemoveAllInspectionHooks_PortPairRemains() throws Exception {
         this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
 
-        InspectionPortEntity inspectionPortElement = new InspectionPortEntity(null, this.ingress, this.egress);
+        InspectionPortEntity inspectionPortElement = new InspectionPortEntity(null, null, this.ingress, this.egress);
 
         String inspectedId = this.inspected.getElementId();
         assertNotNull(inspectedId);
@@ -744,7 +774,7 @@ public class OSGiIntegrationTest {
     public void testApiRemoveInspectionPort() throws Exception {
         this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
 
-        InspectionPortEntity inspectionPortElement = new InspectionPortEntity(null, this.ingress, this.egress);
+        InspectionPortEntity inspectionPortElement = new InspectionPortEntity(null, null, this.ingress, this.egress);
 
         String inspectedId = this.inspected.getElementId();
         assertNotNull(inspectedId);

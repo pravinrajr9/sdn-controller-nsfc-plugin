@@ -16,8 +16,8 @@
  *******************************************************************************/
 package org.osc.controller.nsfc.utils;
 
-import static org.osc.sdk.controller.FailurePolicyType.NA;
-import static org.osc.sdk.controller.TagEncapsulationType.VLAN;
+import static org.osc.sdk.controller.FailurePolicyType.*;
+import static org.osc.sdk.controller.TagEncapsulationType.*;
 
 import java.util.List;
 
@@ -76,7 +76,8 @@ public class RedirectionApiUtils {
             egressEntity = makeNetworkElementEntity(egress);
         }
 
-        return new InspectionPortEntity(inspectionPortElement.getElementId(), ingressEntity, egressEntity);
+        return new InspectionPortEntity(inspectionPortElement.getElementId(), inspectionPortElement.getParentId(),
+                ingressEntity, egressEntity);
     }
 
     public InspectionHookEntity makeInspectionHookEntity(NetworkElement inspectedPort,
@@ -121,39 +122,50 @@ public class RedirectionApiUtils {
         }
     }
 
-    public InspectionPortEntity findInspPortByNetworkElements(NetworkElement ingress, NetworkElement egress) {
-        return this.txControl.required(() -> txInspPortByNetworkElements(ingress, egress));
+    public List<InspectionPortEntity> findInspPortByPortgroupId(String parentId) {
+
+        return this.txControl.required(() -> {
+
+            CriteriaBuilder cb = this.em.getCriteriaBuilder();
+            CriteriaQuery<InspectionPortEntity> criteria = cb.createQuery(InspectionPortEntity.class);
+            Root<InspectionPortEntity> root = criteria.from(InspectionPortEntity.class);
+            criteria.select(root).where(cb.equal(root.get("parentId"), parentId));
+
+            return this.em.createQuery(criteria).getResultList();
+        });
     }
 
-    private InspectionPortEntity txInspPortByNetworkElements(NetworkElement ingress, NetworkElement egress) {
-        String ingressId = ingress != null ? ingress.getElementId() : null;
-        String egressId = ingress != null ? egress.getElementId() : null;
+    public InspectionPortEntity findInspPortByNetworkElements(NetworkElement ingress, NetworkElement egress) {
+        return this.txControl.required(() -> {
 
-        CriteriaBuilder cb = this.em.getCriteriaBuilder();
-        CriteriaQuery<InspectionPortEntity> criteria = cb.createQuery(InspectionPortEntity.class);
-        Root<InspectionPortEntity> root = criteria.from(InspectionPortEntity.class);
-        criteria.select(root).where(cb.and(
-                cb.equal(root.join("ingressPort").get("elementId"), ingressId),
-                cb.equal(root.join("egressPort").get("elementId"), egressId)));
-        Query q= this.em.createQuery(criteria);
+            String ingressId = ingress != null ? ingress.getElementId() : null;
+            String egressId = ingress != null ? egress.getElementId() : null;
 
-        try {
-            @SuppressWarnings("unchecked")
-            List<InspectionPortEntity> ports = q.getResultList();
-            if (ports == null || ports.size() == 0) {
-                LOG.warn(String.format("No Inspection Ports by ingress %s and egress %s", ingressId, egressId));
+            CriteriaBuilder cb = this.em.getCriteriaBuilder();
+            CriteriaQuery<InspectionPortEntity> criteria = cb.createQuery(InspectionPortEntity.class);
+            Root<InspectionPortEntity> root = criteria.from(InspectionPortEntity.class);
+            criteria.select(root).where(cb.and(cb.equal(root.join("ingressPort").get("elementId"), ingressId),
+                    cb.equal(root.join("egressPort").get("elementId"), egressId)));
+            Query q = this.em.createQuery(criteria);
+
+            try {
+                @SuppressWarnings("unchecked")
+                List<InspectionPortEntity> ports = q.getResultList();
+                if (ports == null || ports.size() == 0) {
+                    LOG.warn(String.format("No Inspection Ports by ingress %s and egress %s", ingressId, egressId));
+                    return null;
+                } else if (ports.size() > 1) {
+                    LOG.warn(String.format("Multiple results! Inspection Ports by ingress %s and egress %s", ingressId,
+                            egressId));
+                }
+                return ports.get(0);
+
+            } catch (Exception e) {
+                LOG.error(String.format("Finding Inspection Ports by ingress %s and egress %s", ingress.getElementId(),
+                        egress.getElementId()), e);
                 return null;
-            } else if (ports.size() > 1) {
-                LOG.warn(String.format("Multiple results! Inspection Ports by ingress %s and egress %s", ingressId,
-                        egressId));
             }
-            return ports.get(0);
-
-        } catch (Exception e) {
-            LOG.error(String.format("Finding Inspection Ports by ingress %s and egress %s", ingress.getElementId(),
-                    egress.getElementId()), e);
-            return null;
-        }
+        });
     }
 
     public InspectionHookEntity findInspHookByInspectedAndPort(NetworkElement inspected,

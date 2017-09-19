@@ -16,7 +16,7 @@
  *******************************************************************************/
 package org.osc.controller.nsfc.entities;
 
-import static javax.persistence.FetchType.EAGER;
+import static javax.persistence.FetchType.*;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -45,6 +45,9 @@ public class InspectionPortEntity implements InspectionPortElement {
     @Column(name = "element_id", unique = true)
     private String elementId;
 
+    @Column(name = "parent_id")
+    private String parentId;
+
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = false, fetch = EAGER, optional = true)
     @JoinColumn(name = "ingress_fk", nullable = true, updatable = true)
     private NetworkElementEntity ingressPort;
@@ -59,8 +62,9 @@ public class InspectionPortEntity implements InspectionPortElement {
     public InspectionPortEntity() {
     }
 
-    public InspectionPortEntity(String elementId, NetworkElementEntity ingress, NetworkElementEntity egress) {
+    public InspectionPortEntity(String elementId, String parentId, NetworkElementEntity ingress, NetworkElementEntity egress) {
         this.elementId = elementId;
+        this.parentId = parentId;
         this.ingressPort = ingress;
         this.egressPort = egress;
         this.inspectionHooks = new HashSet<>();
@@ -103,8 +107,11 @@ public class InspectionPortEntity implements InspectionPortElement {
 
     @Override
     public String getParentId() {
-        // TODO Implement for SFC
-        return null;
+        return this.parentId;
+    }
+
+    public void setParentId(String parentId) {
+        this.parentId = parentId;
     }
 
     @Override

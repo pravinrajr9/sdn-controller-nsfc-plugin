@@ -2,7 +2,7 @@
 create sequence if not exists hibernate_sequence start with 1 increment by 1;
 
 create table if not exists INSPECTION_HOOK (hook_id varchar(255) not null, inspected_port_fk varchar(255), inspection_port_fk varchar(255), tag bigint, hook_order bigint, enc_type varchar(255), failure_policy_type varchar(255), primary key (hook_id) );
-create table if not exists INSPECTION_PORT (element_id varchar(255) not null, ingress_fk varchar(255), egress_fk varchar(255), primary key (element_id) );
+create table if not exists INSPECTION_PORT (element_id varchar(255) not null, ingress_fk varchar(255), egress_fk varchar(255), parent_id varchar(255), primary key (element_id) );
 
 create table if not exists NETWORK_ELEMENT (element_id varchar(255) not null, inspection_hook_fk varchar(255), primary key (element_id) );
 

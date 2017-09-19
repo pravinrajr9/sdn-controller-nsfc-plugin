@@ -19,6 +19,7 @@ package org.osc.controller.nsfc.api;
 import static java.util.Arrays.*;
 
 import java.util.List;
+import java.util.UUID;
 
 import javax.persistence.EntityManager;
 
@@ -274,10 +275,10 @@ public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
                     return ipEntity;
                 });
             } catch (Exception e) {
-                LOG.warn("Failed to retrieve InspectionPort by id! Trying by ingress and egress");
+                LOG.warn("Failed to retrieve InspectionPort by id! Trying by ingress and egress " + inspectionPort);
             }
         } else {
-            LOG.warn("Failed to retrieve InspectionPort by id! Trying by ingress and egress");
+            LOG.warn("Failed to retrieve InspectionPort by id! Trying by ingress and egress " + inspectionPort);
         }
 
         NetworkElement ingress = inspectionPort.getIngressPort();
@@ -293,6 +294,17 @@ public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
             throw new IllegalArgumentException("Attempt to register null InspectionPort");
         }
 
+        String inspectionPortGroupId = inspectionPort.getParentId();
+        if (inspectionPortGroupId != null) {
+            List<InspectionPortEntity> portList = this.utils.findInspPortByPortgroupId(inspectionPortGroupId);
+
+            //If Port group does not exist throw an exception
+            if (portList.isEmpty()) {
+                LOG.error("Unknow port group: " + inspectionPortGroupId);
+                throw new IllegalArgumentException("Invalid port group id: " + inspectionPortGroupId);
+            }
+        }
+
         return this.txControl.required(() -> {
 
             // must be within this transaction, because if the DB retrievals inside makeInspectionPortEntry
@@ -304,6 +316,10 @@ public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
 
             if (inspectionPortEntity == null) {
                 inspectionPortEntity = this.utils.makeInspectionPortEntity(inspectionPort);
+            }
+
+            if(inspectionPortEntity.getParentId() == null) {
+                inspectionPortEntity.setParentId(UUID.randomUUID().toString());
             }
 
             inspectionPortEntity = this.em.merge(inspectionPortEntity);
