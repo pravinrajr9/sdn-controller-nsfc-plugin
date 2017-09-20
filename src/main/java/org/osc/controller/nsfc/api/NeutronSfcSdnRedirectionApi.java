@@ -23,6 +23,7 @@ import java.util.UUID;
 
 import javax.persistence.EntityManager;
 
+import org.apache.commons.lang.NotImplementedException;
 import org.apache.log4j.Logger;
 import org.osc.controller.nsfc.entities.InspectionHookEntity;
 import org.osc.controller.nsfc.entities.InspectionPortEntity;
@@ -78,7 +79,12 @@ public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
             return null;
         }
     }
-
+    
+    @Override
+    public NetworkElement getNetworkElementByDeviceOwnerId(String deviceOwnerId) throws Exception {
+        throw new NotImplementedException("Retrieving the network element given the device owner id is currently not supported.");
+    }
+    
     @Override
     public String installInspectionHook(List<NetworkElement> inspectedPorts, InspectionPortElement inspectionPort,
             Long tag, TagEncapsulationType encType, Long order, FailurePolicyType failurePolicyType)
