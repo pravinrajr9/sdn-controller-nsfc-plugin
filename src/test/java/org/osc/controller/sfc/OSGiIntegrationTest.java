@@ -16,17 +16,16 @@
  *******************************************************************************/
 package org.osc.controller.sfc;
 
-import static java.util.Arrays.*;
-import static java.util.Collections.*;
+import static java.util.Arrays.asList;
+import static java.util.Collections.singletonMap;
 import static org.junit.Assert.*;
 import static org.ops4j.pax.exam.CoreOptions.*;
-import static org.osc.sdk.controller.FailurePolicyType.*;
-import static org.osc.sdk.controller.TagEncapsulationType.*;
+import static org.osc.sdk.controller.FailurePolicyType.NA;
+import static org.osc.sdk.controller.TagEncapsulationType.VLAN;
 import static org.osgi.service.jdbc.DataSourceFactory.*;
 
 import java.io.File;
 import java.sql.SQLException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 
@@ -161,7 +160,7 @@ public class OSGiIntegrationTest {
                     mavenBundle("org.apache.directory.studio", "org.apache.commons.lang").versionAsInProject(),
 
                     // Uncomment this line to allow remote debugging
-//                    CoreOptions.vmOption("-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=1044"),
+                    //                    CoreOptions.vmOption("-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=1044"),
 
                     bootClasspathLibrary(mavenBundle("org.apache.geronimo.specs", "geronimo-jta_1.1_spec", "1.1.1"))
                             .beforeFramework(),
@@ -258,7 +257,7 @@ public class OSGiIntegrationTest {
         }
 
         File tracefile = new File(TEST_DB_FILENAME + ".trace.db");
-        if (tracefile.exists() &&  !tracefile.delete()) {
+        if (tracefile.exists() && !tracefile.delete()) {
             throw new IllegalStateException("Failed to delete trace file : " + tracefile.getAbsolutePath());
         }
     }
@@ -276,7 +275,7 @@ public class OSGiIntegrationTest {
         assertNotNull(this.inspectionPort.getElementId());
 
         InspectionPortEntity tmp = this.txControl.requiresNew(() -> {
-             return this.em.find(InspectionPortEntity.class, this.inspectionPort.getElementId());
+            return this.em.find(InspectionPortEntity.class, this.inspectionPort.getElementId());
         });
 
         assertEquals(2, tmp.getEgressPort().getMacAddresses().size());
@@ -367,8 +366,8 @@ public class OSGiIntegrationTest {
 
             assertNotNull(ihe);
             assertEquals(this.inspectionHook.getHookId(), ihe.getHookId());
-//            assertNotNull(ihe.getInspectionPort());
-//            assertEquals(ihe.getInspectionPort().getElementId(), ipe.getElementId());
+            //            assertNotNull(ihe.getInspectionPort());
+            //            assertEquals(ihe.getInspectionPort().getElementId(), ipe.getElementId());
             return ihe;
         });
 
@@ -390,8 +389,8 @@ public class OSGiIntegrationTest {
         assertNotNull(registeredElement);
         assertNotNull(registeredElement.getElementId());
 
-        final String hookId = this.redirApi.installInspectionHook(Arrays.asList(this.inspected), inspectionPortElement,
-                                                                  0L, VLAN, 0L, NA);
+        final String hookId = this.redirApi.installInspectionHook(this.inspected, inspectionPortElement, 0L, VLAN, 0L,
+                NA);
 
         assertNotNull(hookId);
 
@@ -510,7 +509,8 @@ public class OSGiIntegrationTest {
 
         this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
 
-        InspectionPortElement inspectionPortElement = new InspectionPortEntity(null, "fooportgroup", this.ingress, this.egress);
+        InspectionPortElement inspectionPortElement = new InspectionPortEntity(null, "fooportgroup", this.ingress,
+                this.egress);
         this.redirApi.registerInspectionPort(inspectionPortElement);
     }
 
@@ -522,8 +522,8 @@ public class OSGiIntegrationTest {
 
         // expected before installInspectionHook
         this.redirApi.registerInspectionPort(inspectionPortElement);
-        final String hookId = this.redirApi.installInspectionHook(Arrays.asList(this.inspected), inspectionPortElement,
-                                                                  0L, VLAN, 0L, NA);
+        final String hookId = this.redirApi.installInspectionHook(this.inspected, inspectionPortElement, 0L, VLAN, 0L,
+                NA);
 
         assertNotNull(hookId);
 
@@ -556,7 +556,8 @@ public class OSGiIntegrationTest {
 
         InspectionPortEntity inspectionPortElement = new InspectionPortEntity(null, null, this.ingress, this.egress);
 
-        InspectionHookElement foundInspectionHook = this.redirApi.getInspectionHook(this.inspected, inspectionPortElement);
+        InspectionHookElement foundInspectionHook = this.redirApi.getInspectionHook(this.inspected,
+                inspectionPortElement);
         assertEquals("Inspection Hook already in the database before installed!", null, foundInspectionHook);
 
         // expected before installInspectionHook
@@ -565,8 +566,8 @@ public class OSGiIntegrationTest {
         foundInspectionHook = this.redirApi.getInspectionHook(this.inspected, inspectionPortElement);
         assertEquals("Inspection Hook already in the database before installed!", null, foundInspectionHook);
 
-        final String hookId = this.redirApi.installInspectionHook(Arrays.asList(this.inspected), inspectionPortElement,
-                                                                  0L, VLAN, 0L, NA);
+        final String hookId = this.redirApi.installInspectionHook(this.inspected, inspectionPortElement, 0L, VLAN, 0L,
+                NA);
 
         assertNotNull(hookId);
         foundInspectionHook = this.redirApi.getInspectionHook(this.inspected, inspectionPortElement);
@@ -587,8 +588,8 @@ public class OSGiIntegrationTest {
         assertNotNull(registeredElement);
         assertNotNull(registeredElement.getElementId());
 
-        final String hookId = this.redirApi.installInspectionHook(Arrays.asList(this.inspected), inspectionPortElement,
-                                                                  0L, VLAN, 0L, NA);
+        final String hookId = this.redirApi.installInspectionHook(this.inspected, inspectionPortElement, 0L, VLAN, 0L,
+                NA);
 
         assertNotNull(hookId);
 
@@ -600,8 +601,8 @@ public class OSGiIntegrationTest {
         assertNotNull(inspectionHookEntity);
         assertEquals(hookId, inspectionHookEntity.getHookId());
 
-        this.redirApi.removeInspectionHook(Arrays.asList(inspectionHookEntity.getInspectedPort()),
-                                           inspectionHookEntity.getInspectionPort());
+        this.redirApi.removeInspectionHook(inspectionHookEntity.getInspectedPort(),
+                inspectionHookEntity.getInspectionPort());
 
         inspectionHookEntity = this.txControl.required(() -> {
             InspectionHookEntity tmpInspectionHook = this.em.find(InspectionHookEntity.class, hookId);
@@ -623,8 +624,8 @@ public class OSGiIntegrationTest {
         assertNotNull(registeredElement);
         assertNotNull(registeredElement.getElementId());
 
-        final String hookId = this.redirApi.installInspectionHook(Arrays.asList(this.inspected), inspectionPortElement,
-                                                                  0L, VLAN, 0L, NA);
+        final String hookId = this.redirApi.installInspectionHook(this.inspected, inspectionPortElement, 0L, VLAN, 0L,
+                NA);
 
         assertNotNull(hookId);
 
@@ -658,8 +659,8 @@ public class OSGiIntegrationTest {
         assertNotNull(registeredElement);
         assertNotNull(registeredElement.getElementId());
 
-        final String hookId = this.redirApi.installInspectionHook(Arrays.asList(this.inspected), inspectionPortElement,
-                                                                  0L, VLAN, 0L, NA);
+        final String hookId = this.redirApi.installInspectionHook(this.inspected, inspectionPortElement, 0L, VLAN, 0L,
+                NA);
 
         assertNotNull(hookId);
 
@@ -672,8 +673,7 @@ public class OSGiIntegrationTest {
         assertEquals(hookId, inspectionHookElement.getHookId());
 
         assertNotNull(inspectionHookElement.getInspectionPort());
-        assertEquals(registeredElement.getElementId(),
-                     inspectionHookElement.getInspectionPort().getElementId());
+        assertEquals(registeredElement.getElementId(), inspectionHookElement.getInspectionPort().getElementId());
 
         this.redirApi.removeAllInspectionHooks(this.inspected);
 
@@ -685,9 +685,8 @@ public class OSGiIntegrationTest {
         assertEquals(null, inspectionHookElement);
 
         int nInspectionHooks = this.txControl.required(() -> {
-            List<InspectionHookEntity> list = this.em.createQuery("FROM InspectionHookEntity",
-                                                                  InspectionHookEntity.class)
-                                                     .getResultList();
+            List<InspectionHookEntity> list = this.em
+                    .createQuery("FROM InspectionHookEntity", InspectionHookEntity.class).getResultList();
             return list.size();
         });
 
@@ -711,8 +710,7 @@ public class OSGiIntegrationTest {
 
         // expected before installInspectionHook
         this.redirApi.registerInspectionPort(inspectionPortElement);
-        String hookId = this.redirApi.installInspectionHook(Arrays.asList(this.inspected), inspectionPortElement,
-                                                                  0L, VLAN, 0L, NA);
+        String hookId = this.redirApi.installInspectionHook(this.inspected, inspectionPortElement, 0L, VLAN, 0L, NA);
 
         assertNotNull(hookId);
 
