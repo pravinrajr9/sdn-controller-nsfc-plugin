@@ -49,6 +49,7 @@ import org.osc.controller.nsfc.api.NeutronSfcSdnRedirectionApi;
 import org.osc.controller.nsfc.entities.InspectionHookEntity;
 import org.osc.controller.nsfc.entities.InspectionPortEntity;
 import org.osc.controller.nsfc.entities.NetworkElementEntity;
+import org.osc.controller.nsfc.entities.PortPairGroupEntity;
 import org.osc.controller.nsfc.utils.RedirectionApiUtils;
 import org.osc.sdk.controller.api.SdnControllerApi;
 import org.osc.sdk.controller.element.Element;
@@ -107,6 +108,7 @@ public class OSGiIntegrationTest {
 
     private InspectionHookEntity inspectionHook;
     private InspectionPortEntity inspectionPort;
+    private PortPairGroupEntity ppg;
 
     private NetworkElementEntity ingress;
     private NetworkElementEntity egress;
@@ -160,7 +162,7 @@ public class OSGiIntegrationTest {
                     mavenBundle("org.apache.directory.studio", "org.apache.commons.lang").versionAsInProject(),
 
                     // Uncomment this line to allow remote debugging
-                    //                    CoreOptions.vmOption("-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=1044"),
+//                    CoreOptions.vmOption("-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=1045"),
 
                     bootClasspathLibrary(mavenBundle("org.apache.geronimo.specs", "geronimo-jta_1.1_spec", "1.1.1"))
                             .beforeFramework(),
@@ -235,9 +237,12 @@ public class OSGiIntegrationTest {
         this.inspected.setElementId("iNsPeCtEdPoRt");
         this.inspected.setMacAddresses(asList(INSPMAC1_STR));
 
+        this.ppg = new PortPairGroupEntity();
+
         this.inspectionPort = new InspectionPortEntity();
         this.inspectionPort.setIngressPort(this.ingress);
         this.inspectionPort.setEgressPort(this.egress);
+        this.inspectionPort.setPortPairGroup(this.ppg);
 
         this.inspected.setInspectionHook(this.inspectionHook);
         this.inspectionHook.setInspectedPort(this.inspected);
@@ -268,6 +273,7 @@ public class OSGiIntegrationTest {
         assertEquals(null, this.inspectionPort.getElementId());
 
         this.txControl.required(() -> {
+            this.em.persist(this.ppg);
             this.em.persist(this.inspectionHook);
             return this.inspectionHook;
         });
@@ -288,6 +294,7 @@ public class OSGiIntegrationTest {
     public void verifyHookAndPortPersistedAfterSingleHookPersistenceWithObjectGraphSetUp() {
 
         this.txControl.required(() -> {
+            this.em.persist(this.ppg);
             this.em.persist(this.inspectionHook);
             return this.inspectionHook;
         });
@@ -313,6 +320,7 @@ public class OSGiIntegrationTest {
     public void testUtilsInspPortByNetworkElements() throws Exception {
 
         this.txControl.required(() -> {
+            this.em.persist(this.ppg);
             this.em.persist(this.inspectionHook);
             return this.inspectionHook;
         });
@@ -330,6 +338,7 @@ public class OSGiIntegrationTest {
     public void testUtilsNetworkElementEntityByElementId() throws Exception {
 
         this.txControl.required(() -> {
+            this.em.persist(this.ppg);
             this.em.persist(this.inspectionHook);
             return this.inspectionHook;
         });
@@ -350,6 +359,7 @@ public class OSGiIntegrationTest {
     @Test
     public void testUtilsInspHookByInspectedAndPort() throws Exception {
         this.txControl.required(() -> {
+            this.em.persist(this.ppg);
             this.em.persist(this.inspectionHook);
             return this.inspectionHook;
         });
@@ -494,7 +504,10 @@ public class OSGiIntegrationTest {
         assertNotNull(result.getParentId());
         String portGroupId = result.getParentId();
 
-        InspectionPortElement inspectionPortElement2 = new InspectionPortEntity(null, portGroupId,
+        RedirectionApiUtils utils = new RedirectionApiUtils(this.em, this.txControl);
+
+        PortPairGroupEntity ppg = utils.findByPortgroupId(portGroupId);
+        InspectionPortElement inspectionPortElement2 = new InspectionPortEntity(null, ppg,
                 new NetworkElementEntity("IngressFoo", asList("IngressMac"), asList("IngressIP"), null),
                 new NetworkElementEntity("EgressFoo", asList("EgressMac"), asList("EgressIP"), null));
 
@@ -509,7 +522,10 @@ public class OSGiIntegrationTest {
 
         this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
 
-        InspectionPortElement inspectionPortElement = new InspectionPortEntity(null, "fooportgroup", this.ingress,
+        PortPairGroupEntity ppg = new PortPairGroupEntity();
+        ppg.setElementId("fooportgroup");
+
+        InspectionPortElement inspectionPortElement = new InspectionPortEntity(null, ppg, this.ingress,
                 this.egress);
         this.redirApi.registerInspectionPort(inspectionPortElement);
     }
@@ -577,39 +593,12 @@ public class OSGiIntegrationTest {
     }
 
     @Test
-    public void testApiRemoveInspectionHookByPorts_InspectionHookDisappears() throws Exception {
+    public void testApiRemoveInspectionHookByPorts_ExpectUnsupportedOperation() throws Exception {
+        this.exception.expect(UnsupportedOperationException.class);
+
         this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
 
-        InspectionPortEntity inspectionPortElement = new InspectionPortEntity(null, null, this.ingress, this.egress);
-
-        // expected before installInspectionHook
-        Element registeredElement = this.redirApi.registerInspectionPort(inspectionPortElement);
-
-        assertNotNull(registeredElement);
-        assertNotNull(registeredElement.getElementId());
-
-        final String hookId = this.redirApi.installInspectionHook(this.inspected, inspectionPortElement, 0L, VLAN, 0L,
-                NA);
-
-        assertNotNull(hookId);
-
-        InspectionHookEntity inspectionHookEntity = this.txControl.required(() -> {
-            InspectionHookEntity tmpInspectionHook = this.em.find(InspectionHookEntity.class, hookId);
-            return tmpInspectionHook;
-        });
-
-        assertNotNull(inspectionHookEntity);
-        assertEquals(hookId, inspectionHookEntity.getHookId());
-
-        this.redirApi.removeInspectionHook(inspectionHookEntity.getInspectedPort(),
-                inspectionHookEntity.getInspectionPort());
-
-        inspectionHookEntity = this.txControl.required(() -> {
-            InspectionHookEntity tmpInspectionHook = this.em.find(InspectionHookEntity.class, hookId);
-            return tmpInspectionHook;
-        });
-
-        assertEquals(null, inspectionHookEntity);
+        this.redirApi.removeInspectionHook(null, null);
     }
 
     @Test

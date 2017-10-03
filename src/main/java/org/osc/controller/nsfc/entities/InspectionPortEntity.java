@@ -16,7 +16,7 @@
  *******************************************************************************/
 package org.osc.controller.nsfc.entities;
 
-import static javax.persistence.FetchType.*;
+import static javax.persistence.FetchType.EAGER;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -25,9 +25,12 @@ import java.util.Set;
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.FetchType;
+import javax.persistence.ForeignKey;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
+import javax.persistence.ManyToOne;
 import javax.persistence.OneToMany;
 import javax.persistence.OneToOne;
 import javax.persistence.Table;
@@ -39,32 +42,39 @@ import org.osc.sdk.controller.element.InspectionPortElement;
 @Table(name = "INSPECTION_PORT")
 public class InspectionPortEntity implements InspectionPortElement {
 
+    //Port pair id
     @Id
     @GeneratedValue(generator = "uuid")
     @GenericGenerator(name = "uuid", strategy = "uuid2")
     @Column(name = "element_id", unique = true)
     private String elementId;
 
-    @Column(name = "parent_id")
-    private String parentId;
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "port_pair_group_fk", nullable = false,
+            foreignKey = @ForeignKey(name = "FK_INSPECTION_PORT_PPG"))
+    private PortPairGroupEntity portPairGroup;
 
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = false, fetch = EAGER, optional = true)
-    @JoinColumn(name = "ingress_fk", nullable = true, updatable = true)
+    @JoinColumn(name = "ingress_fk",
+            nullable = true,
+            updatable = true,
+            foreignKey = @ForeignKey(name = "FK_INSPECTION_PORT_NETWORK_ELEMENT_INGR"))
     private NetworkElementEntity ingressPort;
 
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = false, fetch = EAGER, optional = true)
-    @JoinColumn(name = "egress_fk", nullable = true, updatable = true)
+    @JoinColumn(name = "egress_fk", nullable = true, updatable = true,
+            foreignKey = @ForeignKey(name = "FK_INSPECTION_PORT_NETWORK_ELEMENT_EGR"))
     private NetworkElementEntity egressPort;
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = false, fetch = EAGER, mappedBy="inspectionPort")
-    private Set<InspectionHookEntity> inspectionHooks;
+    private Set<InspectionHookEntity> inspectionHooks = new HashSet<>();
 
     public InspectionPortEntity() {
     }
 
-    public InspectionPortEntity(String elementId, String parentId, NetworkElementEntity ingress, NetworkElementEntity egress) {
+    public InspectionPortEntity(String elementId, PortPairGroupEntity portPairGroup, NetworkElementEntity ingress, NetworkElementEntity egress) {
         this.elementId = elementId;
-        this.parentId = parentId;
+        this.portPairGroup = portPairGroup;
         this.ingressPort = ingress;
         this.egressPort = egress;
         this.inspectionHooks = new HashSet<>();
@@ -73,10 +83,6 @@ public class InspectionPortEntity implements InspectionPortElement {
     @Override
     public String getElementId() {
         return this.elementId;
-    }
-
-    public void setId(String elementId) {
-        this.elementId = elementId;
     }
 
     @Override
@@ -105,18 +111,25 @@ public class InspectionPortEntity implements InspectionPortElement {
         this.inspectionHooks = new HashSet<>(inspectionHooks);
     }
 
-    @Override
-    public String getParentId() {
-        return this.parentId;
+    public PortPairGroupEntity getPortPairGroup() {
+        return this.portPairGroup;
     }
 
-    public void setParentId(String parentId) {
-        this.parentId = parentId;
+    public void setPortPairGroup(PortPairGroupEntity portPairGroup) {
+        this.portPairGroup = portPairGroup;
+    }
+
+    @Override
+    public String getParentId() {
+        return this.portPairGroup == null ? null : this.portPairGroup.getElementId();
     }
 
     @Override
     public String toString() {
-        return "InspectionPortEntity [elementId=" + this.elementId + ", ingressPort=" + this.ingressPort + ", egressPort="
-                + this.egressPort + ", inspectionHooks=" + this.inspectionHooks + "]";
+        // use get elementid on ppg to avoid cyclic dependency and stackoverflow issues
+        return "InspectionPortEntity [elementId=" + this.elementId + ", portPairGroup=" + getParentId()
+                + ", ingressPort=" + this.ingressPort + ", egressPort=" + this.egressPort + ", inspectionHooks="
+                + this.inspectionHooks + "]";
     }
+
 }

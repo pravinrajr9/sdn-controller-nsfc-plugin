@@ -16,8 +16,8 @@
  *******************************************************************************/
 package org.osc.controller.nsfc.utils;
 
-import static org.osc.sdk.controller.FailurePolicyType.*;
-import static org.osc.sdk.controller.TagEncapsulationType.*;
+import static org.osc.sdk.controller.FailurePolicyType.NA;
+import static org.osc.sdk.controller.TagEncapsulationType.VLAN;
 
 import java.util.List;
 
@@ -31,6 +31,7 @@ import org.apache.log4j.Logger;
 import org.osc.controller.nsfc.entities.InspectionHookEntity;
 import org.osc.controller.nsfc.entities.InspectionPortEntity;
 import org.osc.controller.nsfc.entities.NetworkElementEntity;
+import org.osc.controller.nsfc.entities.PortPairGroupEntity;
 import org.osc.sdk.controller.FailurePolicyType;
 import org.osc.sdk.controller.TagEncapsulationType;
 import org.osc.sdk.controller.element.InspectionPortElement;
@@ -75,9 +76,10 @@ public class RedirectionApiUtils {
         } else {
             egressEntity = makeNetworkElementEntity(egress);
         }
+        String ppgId = inspectionPortElement.getParentId();
+        PortPairGroupEntity ppg = ppgId == null ? null : this.em.find(PortPairGroupEntity.class, ppgId);
 
-        return new InspectionPortEntity(inspectionPortElement.getElementId(), inspectionPortElement.getParentId(),
-                ingressEntity, egressEntity);
+        return new InspectionPortEntity(inspectionPortElement.getElementId(), ppg, ingressEntity, egressEntity);
     }
 
     public InspectionHookEntity makeInspectionHookEntity(NetworkElement inspectedPort,
@@ -122,16 +124,10 @@ public class RedirectionApiUtils {
         }
     }
 
-    public List<InspectionPortEntity> findInspPortByPortgroupId(String parentId) {
+    public PortPairGroupEntity findByPortgroupId(String parentId) {
 
         return this.txControl.required(() -> {
-
-            CriteriaBuilder cb = this.em.getCriteriaBuilder();
-            CriteriaQuery<InspectionPortEntity> criteria = cb.createQuery(InspectionPortEntity.class);
-            Root<InspectionPortEntity> root = criteria.from(InspectionPortEntity.class);
-            criteria.select(root).where(cb.equal(root.get("parentId"), parentId));
-
-            return this.em.createQuery(criteria).getResultList();
+            return this.em.find(PortPairGroupEntity.class, parentId);
         });
     }
 

@@ -17,7 +17,6 @@
 package org.osc.controller.nsfc.api;
 
 import java.util.List;
-import java.util.UUID;
 
 import javax.persistence.EntityManager;
 
@@ -25,6 +24,7 @@ import org.apache.commons.lang.NotImplementedException;
 import org.apache.log4j.Logger;
 import org.osc.controller.nsfc.entities.InspectionHookEntity;
 import org.osc.controller.nsfc.entities.InspectionPortEntity;
+import org.osc.controller.nsfc.entities.PortPairGroupEntity;
 import org.osc.controller.nsfc.utils.RedirectionApiUtils;
 import org.osc.sdk.controller.FailurePolicyType;
 import org.osc.sdk.controller.TagEncapsulationType;
@@ -119,28 +119,9 @@ public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
     @Override
     public void removeInspectionHook(NetworkElement inspectedPort, InspectionPortElement inspectionPort)
             throws Exception {
-        if (inspectedPort == null) {
-            LOG.warn("Attempt to remove an Inspection Hook with no Inspected Port");
-            return;
-        }
-        if (inspectionPort == null) {
-            LOG.warn("Attempt to remove an Inspection Hook with null Inspection Port");
-            return;
-        }
-
-        this.txControl.required(() -> {
-            InspectionHookEntity inspectionHook = this.utils.findInspHookByInspectedAndPort(inspectedPort,
-                    inspectionPort);
-            if (inspectionHook != null) {
-                this.utils.removeSingleInspectionHook(inspectionHook.getHookId());
-            } else {
-                LOG.warn(String.format(
-                        "Attempt to remove nonexistent inspection hook for Inspected %s and Inspection Port %s",
-                        inspectedPort, inspectionPort));
-            }
-
-            return null;
-        });
+        throw new UnsupportedOperationException(String.format(
+                "Removing inspection hooks with Inspected port: %s and Inspection port: %s is not supported.",
+                inspectedPort, inspectedPort));
     }
 
     @Override
@@ -281,10 +262,10 @@ public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
 
         String inspectionPortGroupId = inspectionPort.getParentId();
         if (inspectionPortGroupId != null) {
-            List<InspectionPortEntity> portList = this.utils.findInspPortByPortgroupId(inspectionPortGroupId);
+            PortPairGroupEntity ppg = this.utils.findByPortgroupId(inspectionPortGroupId);
 
             //If Port group does not exist throw an exception
-            if (portList.isEmpty()) {
+            if (ppg == null) {
                 LOG.error("Unknow port group: " + inspectionPortGroupId);
                 throw new IllegalArgumentException("Invalid port group id: " + inspectionPortGroupId);
             }
@@ -303,8 +284,10 @@ public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
                 inspectionPortEntity = this.utils.makeInspectionPortEntity(inspectionPort);
             }
 
-            if(inspectionPortEntity.getParentId() == null) {
-                inspectionPortEntity.setParentId(UUID.randomUUID().toString());
+            if (inspectionPortEntity.getParentId() == null) {
+                PortPairGroupEntity ppg = new PortPairGroupEntity();
+                this.em.persist(ppg);
+                inspectionPortEntity.setPortPairGroup(ppg);
             }
 
             inspectionPortEntity = this.em.merge(inspectionPortEntity);
@@ -401,6 +384,7 @@ public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
             return;
         }
 
+        // should remove ppg if applicable
         InspectionPortElement foundInspectionPort = getInspectionPort(inspectionPort);
 
         if (foundInspectionPort != null) {
