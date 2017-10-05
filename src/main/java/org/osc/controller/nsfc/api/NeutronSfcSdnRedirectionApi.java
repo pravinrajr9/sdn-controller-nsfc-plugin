@@ -20,11 +20,11 @@ import java.util.List;
 
 import javax.persistence.EntityManager;
 
-import org.apache.commons.lang.NotImplementedException;
 import org.apache.log4j.Logger;
 import org.osc.controller.nsfc.entities.InspectionHookEntity;
 import org.osc.controller.nsfc.entities.InspectionPortEntity;
 import org.osc.controller.nsfc.entities.PortPairGroupEntity;
+import org.osc.controller.nsfc.entities.ServiceFunctionChainEntity;
 import org.osc.controller.nsfc.utils.RedirectionApiUtils;
 import org.osc.sdk.controller.FailurePolicyType;
 import org.osc.sdk.controller.TagEncapsulationType;
@@ -47,181 +47,10 @@ public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
     public NeutronSfcSdnRedirectionApi() {
     }
 
-    public NeutronSfcSdnRedirectionApi(TransactionControl txControl,
-            EntityManager em) {
+    public NeutronSfcSdnRedirectionApi(TransactionControl txControl, EntityManager em) {
         this.txControl = txControl;
         this.em = em;
         this.utils = new RedirectionApiUtils(em, txControl);
-    }
-
-    @Override
-    public InspectionHookElement getInspectionHook(NetworkElement inspectedPort, InspectionPortElement inspectionPort)
-            throws Exception {
-
-        // Null args -> warning on read, error on update, exception on create
-        if (inspectedPort == null) {
-            LOG.warn("Attempt to find an Inspection Hook with null Inspected Port");
-            return null;
-        }
-        if (inspectionPort == null) {
-            LOG.warn("Attempt to find an Inspection Hook with null Inspection Port");
-            return null;
-        }
-
-        try {
-            InspectionHookEntity inspectionHook = this.utils.findInspHookByInspectedAndPort(inspectedPort, inspectionPort);
-            return inspectionHook;
-        } catch (Exception e) {
-            LOG.error(String.format("Exception finding Network Element (Inspected %s ; Inspection Port %s):", "" + inspectedPort,
-                    "" + inspectionPort), e);
-            return null;
-        }
-    }
-
-    @Override
-    public NetworkElement getNetworkElementByDeviceOwnerId(String deviceOwnerId) throws Exception {
-        throw new NotImplementedException("Retrieving the network element given the device owner id is currently not supported.");
-    }
-
-    @Override
-    public String installInspectionHook(NetworkElement inspectedPort, InspectionPortElement inspectionPort,
-            Long tag, TagEncapsulationType encType, Long order, FailurePolicyType failurePolicyType)
-            throws NetworkPortNotFoundException, Exception {
-
-        if (inspectedPort == null) {
-            throw new IllegalArgumentException("Attempt to install an Inspection Hook with no Inspected Port");
-        }
-        if (inspectionPort == null) {
-            throw new IllegalArgumentException("Attempt to install an Inspection Hook with null Inspection Port");
-        }
-
-        LOG.info(String.format("Installing Inspection Hook for (Inspected %s ; Inspection Port %s):", "" + inspectedPort,
-                                "" + inspectionPort));
-        LOG.info(String.format("Tag: %d; EncType: %s; Order: %d, Fail Policy: %s", tag, encType, order, failurePolicyType));
-
-        InspectionHookEntity retValEntity = this.txControl.required(() -> {
-            InspectionPortEntity dbInspectionPort =(InspectionPortEntity) getInspectionPort(inspectionPort);
-            this.utils.throwExceptionIfNullEntity(dbInspectionPort, inspectionPort);
-
-            InspectionHookEntity inspectionHookEntity = this.utils.findInspHookByInspectedAndPort(inspectedPort, dbInspectionPort);
-
-            if (inspectionHookEntity == null) {
-                inspectionHookEntity = this.utils.makeInspectionHookEntity(inspectedPort, dbInspectionPort, tag,
-                                                                           encType, order, failurePolicyType);
-            }
-
-            return this.em.merge(inspectionHookEntity);
-        });
-
-        return retValEntity.getHookId();
-    }
-
-    @Override
-    public void removeInspectionHook(NetworkElement inspectedPort, InspectionPortElement inspectionPort)
-            throws Exception {
-        throw new UnsupportedOperationException(String.format(
-                "Removing inspection hooks with Inspected port: %s and Inspection port: %s is not supported.",
-                inspectedPort, inspectedPort));
-    }
-
-    @Override
-    public Long getInspectionHookTag(NetworkElement inspectedPort, InspectionPortElement inspectionPort)
-            throws NetworkPortNotFoundException, Exception {
-        InspectionHookElement inspectionHook = getInspectionHook(inspectedPort, inspectionPort);
-        return inspectionHook == null ? null : inspectionHook.getTag();
-    }
-
-    @Override
-    public void setInspectionHookTag(NetworkElement inspectedPort, InspectionPortElement inspectionPort, Long tag)
-            throws Exception {
-        if (inspectedPort == null) {
-            LOG.error("Attempt to modify an Inspection Hook with null Inspected Port");
-            return;
-        }
-        if (inspectionPort == null) {
-            LOG.error("Attempt to modify an Inspection Hook with null Inspection Port");
-            return;
-        }
-
-        this.txControl.required(() -> {
-            InspectionHookEntity inspectionHook = this.utils.findInspHookByInspectedAndPort(inspectedPort, inspectionPort);
-            if (inspectionHook != null) {
-                inspectionHook.setTag(tag);
-            } else {
-                LOG.warn(String.format("Attempt to modify nonexistent inspection hook for inspected port %s and inspection port %s",
-                        inspectedPort, inspectionPort));
-            }
-
-            return null;
-        });
-    }
-
-    @Override
-    public FailurePolicyType getInspectionHookFailurePolicy(NetworkElement inspectedPort,
-            InspectionPortElement inspectionPort) throws Exception {
-        if (inspectedPort == null) {
-            LOG.warn("Attempt to find an Inspection Hook with null Inspected Port");
-            return null;
-        }
-        if (inspectionPort == null) {
-            LOG.warn("Attempt to find an Inspection Hook with null Inspection Port");
-            return null;
-        }
-
-        InspectionHookEntity inspectionHook = this.utils.findInspHookByInspectedAndPort(inspectedPort, inspectionPort);
-        return inspectionHook == null ? null : inspectionHook.getFailurePolicyType();
-    }
-
-    @Override
-    public void setInspectionHookFailurePolicy(NetworkElement inspectedPort, InspectionPortElement inspectionPort,
-            FailurePolicyType failurePolicyType) throws Exception {
-        if (inspectedPort == null) {
-            LOG.error("Attempt to modify an Inspection Hook with null Inspected Port");
-            return;
-        }
-        if (inspectionPort == null) {
-            LOG.error("Attempt to modify an Inspection Hook with null Inspection Port");
-            return;
-        }
-
-        this.txControl.required(() -> {
-            InspectionHookEntity inspectionHook = this.utils.findInspHookByInspectedAndPort(inspectedPort, inspectionPort);
-            if (inspectionHook != null) {
-                inspectionHook.setFailurePolicyType(failurePolicyType);
-            }  else {
-                LOG.warn(String.format("Attempt to modify nonexistent inspection hook for inspected port %s and inspection port %s",
-                        inspectedPort, inspectionPort));
-            }
-
-
-            return null;
-        });
-    }
-
-    @Override
-    public void removeAllInspectionHooks(NetworkElement inspectedPort) throws Exception {
-        if (inspectedPort == null) {
-            LOG.warn("Attempt to remove Inspection Hooks for null Inspected Port");
-            return;
-        }
-        if (inspectedPort.getElementId() == null) {
-            LOG.warn("Attempt to remove Inspection Hooks for Inspected Port with no id");
-            return;
-        }
-
-        String inspectedId = inspectedPort.getElementId();
-
-        this.txControl.required(() -> {
-
-
-            List<InspectionHookEntity> results = this.utils.txInspectionHookEntitiesByInspected(inspectedId);
-
-            for (InspectionHookEntity inspectionHookEntity : results) {
-                this.utils.removeSingleInspectionHook(inspectionHookEntity.getHookId());
-            }
-
-            return null;
-        });
     }
 
     // Inspection port methods
@@ -250,7 +79,7 @@ public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
         NetworkElement ingress = inspectionPort.getIngressPort();
         NetworkElement egress = inspectionPort.getEgressPort();
 
-        InspectionPortEntity ipEntity = this.utils.findInspPortByNetworkElements(ingress, egress);
+        InspectionPortEntity ipEntity = this.utils.findInspectionPortByNetworkElements(ingress, egress);
         return ipEntity;
     }
 
@@ -262,7 +91,7 @@ public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
 
         String inspectionPortGroupId = inspectionPort.getParentId();
         if (inspectionPortGroupId != null) {
-            PortPairGroupEntity ppg = this.utils.findByPortgroupId(inspectionPortGroupId);
+            PortPairGroupEntity ppg = this.utils.findByPortPairgroupId(inspectionPortGroupId);
 
             //If Port group does not exist throw an exception
             if (ppg == null) {
@@ -278,7 +107,7 @@ public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
 
             NetworkElement ingress = inspectionPort.getIngressPort();
             NetworkElement egress = inspectionPort.getEgressPort();
-            InspectionPortEntity inspectionPortEntity = this.utils.findInspPortByNetworkElements(ingress, egress);
+            InspectionPortEntity inspectionPortEntity = this.utils.findInspectionPortByNetworkElements(ingress, egress);
 
             if (inspectionPortEntity == null) {
                 inspectionPortEntity = this.utils.makeInspectionPortEntity(inspectionPort);
@@ -297,44 +126,67 @@ public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
     }
 
     @Override
-    public void setInspectionHookOrder(NetworkElement inspectedPort, InspectionPortElement inspectionPort, Long order)
-            throws Exception {
-        if (inspectedPort == null) {
-            LOG.error("Attempt to modify an Inspection Hook with null Inspected Port");
-            return;
-        }
+    public void removeInspectionPort(InspectionPortElement inspectionPort)
+            throws NetworkPortNotFoundException, Exception {
         if (inspectionPort == null) {
-            LOG.error("Attempt to modify an Inspection Hook with null Inspection Port");
+            LOG.warn("Attempt to remove a null Inspection Port");
             return;
         }
 
-        this.txControl.required(() -> {
-            InspectionHookEntity inspectionHook = this.utils.findInspHookByInspectedAndPort(inspectedPort, inspectionPort);
-            if (inspectionHook != null) {
-                inspectionHook.setOrder(order);
-            } else {
-                LOG.warn(String.format("Attempt to modify nonexistent Inspection Hook for Inspected port %s and Inspection Port %s",
-                        inspectedPort, inspectionPort));
-            }
+        InspectionPortElement foundInspectionPort = getInspectionPort(inspectionPort);
 
-            return null;
-        });
+        if (foundInspectionPort != null) {
+            PortPairGroupEntity ppg = ((InspectionPortEntity) foundInspectionPort).getPortPairGroup();
+            this.utils.removeSingleInspectionPort(foundInspectionPort.getElementId());
+            ppg.getPortPairs().remove(foundInspectionPort);
+            if(ppg.getPortPairs().size() == 0) {
+                this.utils.removePortPairGroup(ppg.getElementId());
+            }
+        } else {
+            NetworkElement ingress = inspectionPort.getIngressPort();
+            NetworkElement egress = inspectionPort.getEgressPort();
+
+            LOG.warn(String.format("Attempt to remove nonexistent Inspection Port for ingress %s and egress %s",
+                    "" + ingress, "" + egress));
+        }
     }
 
+    // Inspection Hooks methods
     @Override
-    public Long getInspectionHookOrder(NetworkElement inspectedPort, InspectionPortElement inspectionPort)
-            throws Exception {
+    public String installInspectionHook(NetworkElement inspectedPort, InspectionPortElement inspectionPort, Long tag,
+            TagEncapsulationType encType, Long order, FailurePolicyType failurePolicyType)
+            throws NetworkPortNotFoundException, Exception {
+
         if (inspectedPort == null) {
-            LOG.warn("Attempt to find an Inspection Hook with null Inspected Port");
-            return null;
+            throw new IllegalArgumentException("Attempt to install an Inspection Hook with no Inspected Port");
         }
         if (inspectionPort == null) {
-            LOG.warn("Attempt to find an Inspection Hook with null Inspection Port");
-            return null;
+            throw new IllegalArgumentException("Attempt to install an Inspection Hook with null Inspection Port");
         }
 
-        InspectionHookEntity inspectionHook = this.utils.findInspHookByInspectedAndPort(inspectedPort, inspectionPort);
-        return inspectionHook == null ? null : inspectionHook.getOrder();
+        LOG.info(String.format("Installing Inspection Hook for (Inspected Port %s ; Inspection Port %s):",
+                "" + inspectedPort, "" + inspectionPort));
+
+        InspectionHookEntity retValEntity = this.txControl.required(() -> {
+            ServiceFunctionChainEntity sfc = this.utils.findBySfcId(inspectionPort.getElementId());
+            this.utils.throwExceptionIfNullElement(sfc, "Service Function Chain");
+
+            InspectionHookEntity inspectionHookEntity = this.utils.findInspHookByInspectedAndPort(inspectedPort,
+                    sfc);
+
+            if (inspectionHookEntity == null) {
+                inspectionHookEntity = this.utils.makeInspectionHookEntity(inspectedPort, sfc);
+            } else {
+                String msg = String.format("Found existing inspection hook (Inspected Port %s ; Inspection Port %s)",
+                        inspectedPort, inspectionPort);
+                LOG.error(msg);
+                throw new IllegalStateException(msg);
+            }
+
+            return this.em.merge(inspectionHookEntity);
+        });
+
+        return retValEntity.getHookId();
     }
 
     @Override
@@ -352,50 +204,6 @@ public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
         FailurePolicyType failurePolicyType = existingInspectionHook.getFailurePolicyType();
 
         installInspectionHook(inspected, inspectionPort, tag, encType, order, failurePolicyType);
-    }
-
-    @Override
-    public NetworkElement registerNetworkElement(List<NetworkElement> inspectedPorts) throws Exception {
-        return null;
-    }
-
-    @Override
-    public NetworkElement updateNetworkElement(NetworkElement portGroup, List<NetworkElement> inspectedPorts)
-            throws Exception {
-        // no-op
-        return null;
-    }
-
-    @Override
-    public void deleteNetworkElement(NetworkElement portGroupId) throws Exception {
-        // no-op
-    }
-
-    @Override
-    public List<NetworkElement> getNetworkElements(NetworkElement element) throws Exception {
-        return null;
-    }
-
-    @Override
-    public void removeInspectionPort(InspectionPortElement inspectionPort)
-            throws NetworkPortNotFoundException, Exception {
-        if (inspectionPort == null) {
-            LOG.warn("Attempt to remove a null Inspection Port");
-            return;
-        }
-
-        // should remove ppg if applicable
-        InspectionPortElement foundInspectionPort = getInspectionPort(inspectionPort);
-
-        if (foundInspectionPort != null) {
-            this.utils.removeSingleInspectionPort(foundInspectionPort.getElementId());
-        } else {
-            NetworkElement ingress = inspectionPort.getIngressPort();
-            NetworkElement egress = inspectionPort.getEgressPort();
-
-            LOG.warn(String.format("Attempt to remove nonexistent Inspection Port for ingress %s and egress %s",
-                                   "" + ingress, "" + egress));
-        }
     }
 
     @Override
@@ -418,6 +226,93 @@ public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
         return this.txControl.required(() -> {
             return this.em.find(InspectionHookEntity.class, inspectionHookId);
         });
+    }
+
+    // SFC methods
+    @Override
+    public NetworkElement registerNetworkElement(List<NetworkElement> inspectedPorts) throws Exception {
+        return null;
+    }
+
+    @Override
+    public NetworkElement updateNetworkElement(NetworkElement portGroup, List<NetworkElement> inspectedPorts)
+            throws Exception {
+        // no-op
+        return null;
+    }
+
+    @Override
+    public void deleteNetworkElement(NetworkElement portGroupId) throws Exception {
+        // no-op
+    }
+
+    @Override
+    public List<NetworkElement> getNetworkElements(NetworkElement element) throws Exception {
+        return null;
+    }
+
+    // Unsupported operations in SFC
+    @Override
+    public InspectionHookElement getInspectionHook(NetworkElement inspectedPort, InspectionPortElement inspectionPort)
+            throws Exception {
+        throw new UnsupportedOperationException(String.format(
+                "Retriving inspection hooks with Inspected port: %s and Inspection port: %s is not supported.",
+                inspectedPort, inspectedPort));
+    }
+
+    @Override
+    public void removeAllInspectionHooks(NetworkElement inspectedPort) throws Exception {
+        throw new UnsupportedOperationException("Removing all inspection hooks is not supported in neutron SFC.");
+    }
+
+    @Override
+    public void removeInspectionHook(NetworkElement inspectedPort, InspectionPortElement inspectionPort)
+            throws Exception {
+        throw new UnsupportedOperationException(String.format(
+                "Removing inspection hooks with Inspected port: %s and Inspection port: %s is not supported.",
+                inspectedPort, inspectedPort));
+    }
+
+    @Override
+    public Long getInspectionHookTag(NetworkElement inspectedPort, InspectionPortElement inspectionPort)
+            throws NetworkPortNotFoundException, Exception {
+        throw new UnsupportedOperationException("Tags are not supported in neutron SFC.");
+    }
+
+    @Override
+    public void setInspectionHookTag(NetworkElement inspectedPort, InspectionPortElement inspectionPort, Long tag)
+            throws Exception {
+        throw new UnsupportedOperationException("Tags are not supported in neutron SFC.");
+    }
+
+    @Override
+    public FailurePolicyType getInspectionHookFailurePolicy(NetworkElement inspectedPort,
+            InspectionPortElement inspectionPort) throws Exception {
+        throw new UnsupportedOperationException("Failure policy is not supported in neutron SFC.");
+    }
+
+    @Override
+    public void setInspectionHookFailurePolicy(NetworkElement inspectedPort, InspectionPortElement inspectionPort,
+            FailurePolicyType failurePolicyType) throws Exception {
+        throw new UnsupportedOperationException("Failure policy is not supported in neutron SFC.");
+    }
+
+    @Override
+    public void setInspectionHookOrder(NetworkElement inspectedPort, InspectionPortElement inspectionPort, Long order)
+            throws Exception {
+        throw new UnsupportedOperationException("Hook order is not supported in neutron SFC.");
+    }
+
+    @Override
+    public Long getInspectionHookOrder(NetworkElement inspectedPort, InspectionPortElement inspectionPort)
+            throws Exception {
+        throw new UnsupportedOperationException("Hook order is not supported in neutron SFC.");
+    }
+
+    @Override
+    public NetworkElement getNetworkElementByDeviceOwnerId(String deviceOwnerId) throws Exception {
+        throw new UnsupportedOperationException(
+                "Retrieving the network element given the device owner id is currently not supported.");
     }
 
     @Override

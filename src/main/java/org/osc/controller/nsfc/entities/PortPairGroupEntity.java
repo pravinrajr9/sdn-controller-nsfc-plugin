@@ -76,8 +76,9 @@ public class PortPairGroupEntity implements NetworkElement {
 
     @Override
     public String toString() {
-        return "PortPairGroupEntity [elementId=" + this.elementId + ", portPairs=" + this.portPairs + ", serviceFunctionChain="
-                + this.serviceFunctionChain + "]";
+        // use get elementid on sfc to avoid cyclic dependency and stackoverflow issues
+        return "PortPairGroupEntity [elementId=" + this.elementId + ", portPairs=" + this.portPairs
+                + ", serviceFunctionChain=" + getParentId() + "]";
     }
 
     @Override

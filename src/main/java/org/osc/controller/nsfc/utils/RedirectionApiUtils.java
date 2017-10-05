@@ -16,9 +16,6 @@
  *******************************************************************************/
 package org.osc.controller.nsfc.utils;
 
-import static org.osc.sdk.controller.FailurePolicyType.NA;
-import static org.osc.sdk.controller.TagEncapsulationType.VLAN;
-
 import java.util.List;
 
 import javax.persistence.EntityManager;
@@ -32,8 +29,8 @@ import org.osc.controller.nsfc.entities.InspectionHookEntity;
 import org.osc.controller.nsfc.entities.InspectionPortEntity;
 import org.osc.controller.nsfc.entities.NetworkElementEntity;
 import org.osc.controller.nsfc.entities.PortPairGroupEntity;
-import org.osc.sdk.controller.FailurePolicyType;
-import org.osc.sdk.controller.TagEncapsulationType;
+import org.osc.controller.nsfc.entities.ServiceFunctionChainEntity;
+import org.osc.sdk.controller.element.Element;
 import org.osc.sdk.controller.element.InspectionPortElement;
 import org.osc.sdk.controller.element.NetworkElement;
 import org.osgi.service.transaction.control.TransactionControl;
@@ -50,7 +47,7 @@ public class RedirectionApiUtils {
         this.txControl = txControl;
     }
 
-    public NetworkElementEntity makeNetworkElementEntity(NetworkElement networkElement) {
+    private NetworkElementEntity makeNetworkElementEntity(NetworkElement networkElement) {
         NetworkElementEntity retVal = new NetworkElementEntity();
 
         retVal.setElementId(networkElement.getElementId());
@@ -61,7 +58,7 @@ public class RedirectionApiUtils {
     }
 
     public InspectionPortEntity makeInspectionPortEntity(InspectionPortElement inspectionPortElement) {
-        throwExceptionIfNullElement(inspectionPortElement);
+        throwExceptionIfNullElement(inspectionPortElement, "Ins");
 
         NetworkElement ingress = inspectionPortElement.getIngressPort();
         throwExceptionIfNullElement(ingress, "Null ingress element.");
@@ -83,55 +80,44 @@ public class RedirectionApiUtils {
     }
 
     public InspectionHookEntity makeInspectionHookEntity(NetworkElement inspectedPort,
-            InspectionPortElement inspectionPort, Long tag, TagEncapsulationType encType, Long order,
-            FailurePolicyType failurePolicyType) {
+            NetworkElement sfcNetworkElement) {
 
         throwExceptionIfNullElement(inspectedPort, "Null inspected port!");
 
-        InspectionPortEntity inspectionPortEntity = makeInspectionPortEntity(inspectionPort);
-
-        encType = (encType != null ? encType : VLAN);
-        failurePolicyType = (failurePolicyType != null ? failurePolicyType : NA);
+        ServiceFunctionChainEntity sfc = findBySfcId(sfcNetworkElement.getElementId());
 
         NetworkElementEntity inspected = makeNetworkElementEntity(inspectedPort);
-        InspectionHookEntity retVal = new InspectionHookEntity();
+        InspectionHookEntity retVal = new InspectionHookEntity(inspected, sfc);
 
-        retVal.setInspectedPort(inspected);
-        retVal.setInspectionPort(inspectionPortEntity);
-        retVal.setOrder(order);
-        retVal.setTag(tag);
-        retVal.setEncType(encType);
-        retVal.setFailurePolicyType(failurePolicyType);
-
-        inspectionPortEntity.getInspectionHooks().add(retVal);
         inspected.setInspectionHook(retVal);
 
         return retVal;
     }
 
-    public NetworkElementEntity txNetworkElementEntityByElementId(String elementId) {
-        CriteriaBuilder cb = this.em.getCriteriaBuilder();
-
-        CriteriaQuery<NetworkElementEntity> q = cb.createQuery(NetworkElementEntity.class);
-        Root<NetworkElementEntity> r = q.from(NetworkElementEntity.class);
-        q.where(cb.equal(r.get("elementId"), elementId));
-
-        try {
-            return this.em.createQuery(q).getSingleResult();
-        } catch (Exception e) {
-            LOG.error(String.format("Finding Network Element %s ", elementId), e);
-            return null;
-        }
-    }
-
-    public PortPairGroupEntity findByPortgroupId(String parentId) {
+    public PortPairGroupEntity findByPortPairgroupId(String ppgId) {
 
         return this.txControl.required(() -> {
-            return this.em.find(PortPairGroupEntity.class, parentId);
+            return this.em.find(PortPairGroupEntity.class, ppgId);
         });
     }
 
-    public InspectionPortEntity findInspPortByNetworkElements(NetworkElement ingress, NetworkElement egress) {
+    public void removePortPairGroup(String ppgId) {
+
+        this.txControl.required(() -> {
+            PortPairGroupEntity ppg = this.em.find(PortPairGroupEntity.class, ppgId);
+            this.em.remove(ppg);
+            return null;
+        });
+    }
+
+    public ServiceFunctionChainEntity findBySfcId(String sfcId) {
+
+        return this.txControl.required(() -> {
+            return this.em.find(ServiceFunctionChainEntity.class, sfcId);
+        });
+    }
+
+    public InspectionPortEntity findInspectionPortByNetworkElements(NetworkElement ingress, NetworkElement egress) {
         return this.txControl.required(() -> {
 
             String ingressId = ingress != null ? ingress.getElementId() : null;
@@ -164,19 +150,8 @@ public class RedirectionApiUtils {
         });
     }
 
-    public InspectionHookEntity findInspHookByInspectedAndPort(NetworkElement inspected,
-            InspectionPortElement element) {
-        return this.txControl.required(() -> {
-            return txInspHookByInspectedAndPort(inspected, element);
-        });
-    }
-
     public InspectionPortEntity txInspectionPortEntityById(String id) {
         return this.em.find(InspectionPortEntity.class, id);
-    }
-
-    public NetworkElementEntity txNetworkElementEntityById(Long id) {
-        return this.em.find(NetworkElementEntity.class, id);
     }
 
     public void removeSingleInspectionHook(String hookId) {
@@ -185,35 +160,20 @@ public class RedirectionApiUtils {
             return;
         }
 
-        String inspectedId  = this.txControl.required(() -> {
-            InspectionHookEntity dbInspectionHook =
-                    this.em.find(InspectionHookEntity.class, hookId);
+        this.txControl.required(() -> {
+            InspectionHookEntity dbInspectionHook = this.em.find(InspectionHookEntity.class, hookId);
 
             if (dbInspectionHook == null) {
                 LOG.warn("Attempt to remove nonexistent Inspection Hook for id " + hookId);
                 return null;
             }
-
             NetworkElementEntity dbInspectedPort = dbInspectionHook.getInspectedPort();
+            ServiceFunctionChainEntity sfc = dbInspectionHook.getServiceFunctionChain();
+            sfc.getInspectionHooks().remove(dbInspectionHook);
 
-            dbInspectedPort.setInspectionHook(null);
-            dbInspectionHook.setInspectedPort(null);
-            return dbInspectedPort.getElementId();
-        });
-
-        if (inspectedId == null) {
-            return;
-        }
-
-        this.txControl.required(() -> {
-            NetworkElementEntity dbNetworkElement = this.em.find(NetworkElementEntity.class, inspectedId);
-
-            this.em.remove(dbNetworkElement);
-
-            Query q = this.em.createQuery("DELETE FROM InspectionHookEntity WHERE hook_id = :id");
-            q.setParameter("id", hookId);
-            q.executeUpdate();
-
+            this.em.remove(dbInspectionHook);
+            this.em.remove(dbInspectedPort);
+            this.em.merge(sfc);
             return null;
         });
     }
@@ -221,64 +181,46 @@ public class RedirectionApiUtils {
     public void removeSingleInspectionPort(String inspectionPortId) {
         this.txControl.required(() -> {
 
-          Query q = this.em.createQuery("DELETE FROM InspectionPortEntity WHERE element_id = :id");
-          q.setParameter("id", inspectionPortId);
-          q.executeUpdate();
-          return null;
+            InspectionPortEntity inspectionPort = this.em.find(InspectionPortEntity.class, inspectionPortId);
+            this.em.remove(inspectionPort);
+            return null;
         });
     }
 
-    private InspectionHookEntity txInspHookByInspectedAndPort(NetworkElement inspected, InspectionPortElement element) {
-        // Paranoid
-        NetworkElement ingress = element != null ? element.getIngressPort() : null;
-        NetworkElement egress = element != null ? element.getEgressPort() : null;
+    /**
+     * Assumes arguments are not null
+     */
+    public InspectionHookEntity findInspHookByInspectedAndPort(NetworkElement inspected,
+            ServiceFunctionChainEntity inspectionSfc) {
+        LOG.info(String.format("Finding Inspection hooks by inspected %s and sfc %s", inspected,
+                inspectionSfc.getElementId()));
 
-        String inspectedId = inspected != null ? inspected.getElementId() : null;
+        return this.txControl.required(() -> {
 
-        InspectionPortEntity inspPort = findInspPortByNetworkElements(ingress, egress);
+            String inspectedId = inspected.getElementId();
+            ServiceFunctionChainEntity sfc = this.em.find(ServiceFunctionChainEntity.class,
+                    inspectionSfc.getElementId());
 
-        String portId = inspPort != null ? inspPort.getElementId() : null;
+            CriteriaBuilder cb = this.em.getCriteriaBuilder();
+            CriteriaQuery<InspectionHookEntity> criteria = cb.createQuery(InspectionHookEntity.class);
+            Root<InspectionHookEntity> root = criteria.from(InspectionHookEntity.class);
+            criteria.select(root).where(cb.and(cb.equal(root.join("inspectedPort").get("elementId"), inspectedId),
+                    cb.equal(root.join("serviceFunctionChain"), sfc)));
+            Query q = this.em.createQuery(criteria);
 
-        CriteriaBuilder cb = this.em.getCriteriaBuilder();
-        CriteriaQuery<InspectionHookEntity> criteria = cb.createQuery(InspectionHookEntity.class);
-        Root<InspectionHookEntity> root = criteria.from(InspectionHookEntity.class);
-        criteria.select(root).where(cb.and(
-                cb.equal(root.join("inspectedPort").get("elementId"), inspectedId),
-                cb.equal(root.join("inspectionPort").get("elementId"), portId)));
-        Query q= this.em.createQuery(criteria);
-
-        try {
             @SuppressWarnings("unchecked")
             List<InspectionHookEntity> inspectionHooks = q.getResultList();
             if (inspectionHooks == null || inspectionHooks.size() == 0) {
-                LOG.warn(String.format("No Inspection hooks by inspected %s and port %s", inspectedId, portId));
+                LOG.warn(String.format("No Inspection hooks by inspected %s and sfc %s", inspectedId, sfc));
                 return null;
             } else if (inspectionHooks.size() > 1) {
-                LOG.warn(String.format("Multiple results! Inspection hooks by inspected %s and port %s", inspectedId,
-                        portId));
+                String msg = String.format("Multiple results! Inspection hooks by inspected %s and sfc %s", inspectedId,
+                            sfc);
+                LOG.warn(msg);
+                throw new IllegalStateException(msg);
             }
             return inspectionHooks.get(0);
-
-        } catch (Exception e) {
-            LOG.error(String.format("Finding Inspection hooks by inspected %s and port %s", inspectedId, portId), e);
-            return null;
-        }
-    }
-
-    public List<InspectionHookEntity> txInspectionHookEntitiesByInspected(String inspectedId) {
-
-        CriteriaBuilder cb = this.em.getCriteriaBuilder();
-        CriteriaQuery<InspectionHookEntity> criteria = cb.createQuery(InspectionHookEntity.class);
-        Root<InspectionHookEntity> root = criteria.from(InspectionHookEntity.class);
-
-        criteria.select(root).where(cb.equal(root.join("inspectedPort").get("elementId"), inspectedId));
-
-        Query q= this.em.createQuery(criteria);
-
-        @SuppressWarnings("unchecked")
-        List<InspectionHookEntity> results = q.getResultList();
-
-        return results;
+        });
     }
 
     public void throwExceptionIfNullEntity(InspectionPortEntity inspectionPortTmp, InspectionPortElement inspectionPort)
@@ -294,17 +236,18 @@ public class RedirectionApiUtils {
         }
     }
 
-    private void throwExceptionIfNullElement(NetworkElement networkElement, String msg) {
-        if (networkElement == null) {
-            msg = (msg != null ? msg : "null passed for Network Element argument!");
+    public void throwExceptionIfNullElement(Element element, String type) {
+        if (element == null) {
+            String msg = String.format("null passed for %s argument!", type);
             LOG.error(msg);
             throw new IllegalArgumentException(msg);
         }
     }
 
-    private void throwExceptionIfNullElement(InspectionPortElement networkElement) {
+
+    private void throwExceptionIfNullElement(NetworkElement networkElement, String msg) {
         if (networkElement == null) {
-            String msg = "null passed for Inspection Port argument!";
+            msg = (msg != null ? msg : "null passed for Network Element argument!");
             LOG.error(msg);
             throw new IllegalArgumentException(msg);
         }

@@ -18,10 +18,6 @@ package org.osc.controller.nsfc.entities;
 
 import static javax.persistence.FetchType.EAGER;
 
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
-
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -31,13 +27,15 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
-import javax.persistence.OneToMany;
 import javax.persistence.OneToOne;
 import javax.persistence.Table;
 
 import org.hibernate.annotations.GenericGenerator;
 import org.osc.sdk.controller.element.InspectionPortElement;
 
+/**
+ * Translates to a port pair in SFC
+ */
 @Entity
 @Table(name = "INSPECTION_PORT")
 public class InspectionPortEntity implements InspectionPortElement {
@@ -66,9 +64,6 @@ public class InspectionPortEntity implements InspectionPortElement {
             foreignKey = @ForeignKey(name = "FK_INSPECTION_PORT_NETWORK_ELEMENT_EGR"))
     private NetworkElementEntity egressPort;
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = false, fetch = EAGER, mappedBy="inspectionPort")
-    private Set<InspectionHookEntity> inspectionHooks = new HashSet<>();
-
     public InspectionPortEntity() {
     }
 
@@ -77,7 +72,6 @@ public class InspectionPortEntity implements InspectionPortElement {
         this.portPairGroup = portPairGroup;
         this.ingressPort = ingress;
         this.egressPort = egress;
-        this.inspectionHooks = new HashSet<>();
     }
 
     @Override
@@ -103,14 +97,6 @@ public class InspectionPortEntity implements InspectionPortElement {
         this.egressPort = egressPort;
     }
 
-    public Set<InspectionHookEntity> getInspectionHooks() {
-        return this.inspectionHooks;
-    }
-
-    public void setInspectionHooks(Collection<InspectionHookEntity> inspectionHooks) {
-        this.inspectionHooks = new HashSet<>(inspectionHooks);
-    }
-
     public PortPairGroupEntity getPortPairGroup() {
         return this.portPairGroup;
     }
@@ -128,8 +114,37 @@ public class InspectionPortEntity implements InspectionPortElement {
     public String toString() {
         // use get elementid on ppg to avoid cyclic dependency and stackoverflow issues
         return "InspectionPortEntity [elementId=" + this.elementId + ", portPairGroup=" + getParentId()
-                + ", ingressPort=" + this.ingressPort + ", egressPort=" + this.egressPort + ", inspectionHooks="
-                + this.inspectionHooks + "]";
+                + ", ingressPort=" + this.ingressPort + ", egressPort=" + this.egressPort + "]";
+    }
+
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + ((this.elementId == null) ? 0 : this.elementId.hashCode());
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        InspectionPortEntity other = (InspectionPortEntity) obj;
+        if (this.elementId == null) {
+            if (other.elementId != null) {
+                return false;
+            }
+        } else if (!this.elementId.equals(other.elementId)) {
+            return false;
+        }
+        return true;
     }
 
 }

@@ -16,13 +16,11 @@
  *******************************************************************************/
 package org.osc.controller.nsfc.entities;
 
-import static javax.persistence.EnumType.STRING;
 import static javax.persistence.FetchType.EAGER;
 
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
-import javax.persistence.Enumerated;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
@@ -34,6 +32,7 @@ import org.hibernate.annotations.GenericGenerator;
 import org.osc.sdk.controller.FailurePolicyType;
 import org.osc.sdk.controller.TagEncapsulationType;
 import org.osc.sdk.controller.element.InspectionHookElement;
+import org.osc.sdk.controller.element.InspectionPortElement;
 
 @Entity
 @Table(name = "INSPECTION_HOOK")
@@ -45,29 +44,20 @@ public class InspectionHookEntity implements InspectionHookElement {
     @Column(name = "hook_id", unique = true)
     private String hookId;
 
-    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = false, fetch = EAGER, optional = true)
-    @JoinColumn(name = "inspected_port_fk", nullable = true, updatable = true)
+    @OneToOne(fetch = EAGER, cascade = CascadeType.ALL)
+    @JoinColumn(name = "inspected_port_fk", nullable = false)
     private NetworkElementEntity inspectedPort;
 
-    @ManyToOne(cascade = {CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REFRESH}, fetch = EAGER, optional = true)
-    @JoinColumn(name = "inspection_port_fk", nullable = true, updatable = true)
-    private InspectionPortEntity inspectionPort;
+    @ManyToOne(fetch = EAGER)
+    @JoinColumn(name = "sfc_fk", nullable = false)
+    private ServiceFunctionChainEntity serviceFunctionChain;
 
-    private Long tag;
+    InspectionHookEntity() {
+    }
 
-    // "order" is a sql keyword. Avoid column named "order"
-    @Column(name = "hook_order")
-    private Long hookOrder;
-
-    @Enumerated(STRING)
-    @Column(name = "enc_type")
-    private TagEncapsulationType encType;
-
-    @Enumerated(STRING)
-    @Column(name = "failure_policy_type")
-    private FailurePolicyType failurePolicyType;
-
-    public InspectionHookEntity() {
+    public InspectionHookEntity(NetworkElementEntity inspectedPort, ServiceFunctionChainEntity serviceFunctionChain) {
+        this.inspectedPort = inspectedPort;
+        this.serviceFunctionChain = serviceFunctionChain;
     }
 
     @Override
@@ -88,55 +78,43 @@ public class InspectionHookEntity implements InspectionHookElement {
         this.inspectedPort = inspectedPort;
     }
 
-    @Override
-    public InspectionPortEntity getInspectionPort() {
-        return this.inspectionPort;
+    public ServiceFunctionChainEntity getServiceFunctionChain() {
+        return this.serviceFunctionChain;
     }
 
-    public void setInspectionPort(InspectionPortEntity inspectionPort) {
-        this.inspectionPort = inspectionPort;
+    public void setServiceFunctionChain(ServiceFunctionChainEntity serviceFunctionChain) {
+        this.serviceFunctionChain = serviceFunctionChain;
     }
 
     @Override
     public Long getTag() {
-        return this.tag;
-    }
-
-    public void setTag(Long tag) {
-        this.tag = tag;
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public Long getOrder() {
-        return this.hookOrder;
-    }
-
-    public void setOrder(Long order) {
-        this.hookOrder = order;
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public TagEncapsulationType getEncType() {
-        return this.encType;
-    }
-
-    public void setEncType(TagEncapsulationType encType) {
-        this.encType = encType;
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public FailurePolicyType getFailurePolicyType() {
-        return this.failurePolicyType;
-    }
-
-    public void setFailurePolicyType(FailurePolicyType failurePolicyType) {
-        this.failurePolicyType = failurePolicyType;
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public String toString() {
-        return "InspectionHookEntity [hookId=" + this.hookId + ", inspectedPort=" + this.inspectedPort +
-               ", tag=" + this.tag + ", hookOrder=" + this.hookOrder + ", encType=" + this.encType
-               + ", failurePolicyType=" + this.failurePolicyType + "]";
+        return "InspectionHookEntity [hookId=" + this.hookId + ", inspectedPort=" + this.inspectedPort
+                + ", serviceFunctionChain=" + this.serviceFunctionChain + "]";
     }
+
+    @Override
+    public InspectionPortElement getInspectionPort() {
+        return null;
+    }
+
 }
