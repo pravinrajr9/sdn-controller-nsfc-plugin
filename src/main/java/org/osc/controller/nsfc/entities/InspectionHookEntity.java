@@ -114,7 +114,7 @@ public class InspectionHookEntity implements InspectionHookElement {
 
     @Override
     public InspectionPortElement getInspectionPort() {
-        return null;
+        return this.serviceFunctionChain;
     }
 
 }

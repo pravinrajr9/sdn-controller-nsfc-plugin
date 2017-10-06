@@ -53,6 +53,10 @@ public class PortPairGroupEntity implements NetworkElement {
     public PortPairGroupEntity() {
     }
 
+    public PortPairGroupEntity(String elementId) {
+        this.elementId = elementId;
+    }
+
     @Override
     public String getElementId() {
         return this.elementId;

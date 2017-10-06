@@ -23,6 +23,7 @@ import javax.persistence.EntityManager;
 import org.apache.log4j.Logger;
 import org.osc.controller.nsfc.entities.InspectionHookEntity;
 import org.osc.controller.nsfc.entities.InspectionPortEntity;
+import org.osc.controller.nsfc.entities.NetworkElementEntity;
 import org.osc.controller.nsfc.entities.PortPairGroupEntity;
 import org.osc.controller.nsfc.entities.ServiceFunctionChainEntity;
 import org.osc.controller.nsfc.utils.RedirectionApiUtils;
@@ -93,11 +94,7 @@ public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
         if (inspectionPortGroupId != null) {
             PortPairGroupEntity ppg = this.utils.findByPortPairgroupId(inspectionPortGroupId);
 
-            //If Port group does not exist throw an exception
-            if (ppg == null) {
-                LOG.error("Unknow port group: " + inspectionPortGroupId);
-                throw new IllegalArgumentException("Invalid port group id: " + inspectionPortGroupId);
-            }
+            this.utils.throwExceptionIfCannotFindById(ppg, "port group", inspectionPortGroupId);
         }
 
         return this.txControl.required(() -> {
@@ -113,8 +110,10 @@ public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
                 inspectionPortEntity = this.utils.makeInspectionPortEntity(inspectionPort);
             }
 
+            PortPairGroupEntity ppg = inspectionPortEntity.getPortPairGroup();
             if (inspectionPortEntity.getParentId() == null) {
-                PortPairGroupEntity ppg = new PortPairGroupEntity();
+                ppg = new PortPairGroupEntity();
+                ppg.getPortPairs().add(inspectionPortEntity);
                 this.em.persist(ppg);
                 inspectionPortEntity.setPortPairGroup(ppg);
             }
@@ -157,32 +156,26 @@ public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
             TagEncapsulationType encType, Long order, FailurePolicyType failurePolicyType)
             throws NetworkPortNotFoundException, Exception {
 
-        if (inspectedPort == null) {
-            throw new IllegalArgumentException("Attempt to install an Inspection Hook with no Inspected Port");
-        }
-        if (inspectionPort == null) {
-            throw new IllegalArgumentException("Attempt to install an Inspection Hook with null Inspection Port");
-        }
+        this.utils.throwExceptionIfNullElementAndId(inspectedPort, "Inspected port");
+        this.utils.throwExceptionIfNullElementAndId(inspectionPort, "Inspection port");
 
         LOG.info(String.format("Installing Inspection Hook for (Inspected Port %s ; Inspection Port %s):",
                 "" + inspectedPort, "" + inspectionPort));
 
-        InspectionHookEntity retValEntity = this.txControl.required(() -> {
-            ServiceFunctionChainEntity sfc = this.utils.findBySfcId(inspectionPort.getElementId());
-            this.utils.throwExceptionIfNullElement(sfc, "Service Function Chain");
+        ServiceFunctionChainEntity sfc = this.utils.findBySfcId(inspectionPort.getElementId());
+        this.utils.throwExceptionIfCannotFindById(sfc, "Service Function Chain", inspectionPort.getElementId());
 
-            InspectionHookEntity inspectionHookEntity = this.utils.findInspHookByInspectedAndPort(inspectedPort,
-                    sfc);
+        InspectionHookEntity retValEntity = this.txControl.required(() -> {
+            InspectionHookEntity inspectionHookEntity = this.utils.findInspHookByInspectedAndPort(inspectedPort, sfc);
 
             if (inspectionHookEntity == null) {
                 inspectionHookEntity = this.utils.makeInspectionHookEntity(inspectedPort, sfc);
             } else {
-                String msg = String.format("Found existing inspection hook (Inspected Port %s ; Inspection Port %s)",
+                String msg = String.format("Found existing inspection hook (Inspected %s ; Inspection Port %s)",
                         inspectedPort, inspectionPort);
-                LOG.error(msg);
+                LOG.error(msg + " " + inspectionHookEntity);
                 throw new IllegalStateException(msg);
             }
-
             return this.em.merge(inspectionHookEntity);
         });
 
@@ -190,20 +183,42 @@ public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
     }
 
     @Override
-    public void updateInspectionHook(InspectionHookElement existingInspectionHook) throws Exception {
-        if (existingInspectionHook == null) {
+    public void updateInspectionHook(InspectionHookElement providedHook) throws Exception {
+        if (providedHook == null || providedHook.getHookId() == null) {
             throw new IllegalArgumentException("Attempt to update a null Inspection Hook!");
         }
+        LOG.info(String.format("Updating Inspection Hook %s:", providedHook));
 
-        NetworkElement inspected = existingInspectionHook.getInspectedPort();
-        InspectionPortElement inspectionPort = existingInspectionHook.getInspectionPort();
+        NetworkElement providedInspectedPort = providedHook.getInspectedPort();
+        InspectionPortElement providedInspectionPort = providedHook.getInspectionPort();
 
-        Long tag = existingInspectionHook.getTag();
-        Long order = existingInspectionHook.getOrder();
-        TagEncapsulationType encType = existingInspectionHook.getEncType();
-        FailurePolicyType failurePolicyType = existingInspectionHook.getFailurePolicyType();
+        this.utils.throwExceptionIfNullElementAndId(providedInspectedPort, "Inspected port");
+        this.utils.throwExceptionIfNullElementAndId(providedInspectionPort, "Inspection port");
 
-        installInspectionHook(inspected, inspectionPort, tag, encType, order, failurePolicyType);
+        InspectionHookEntity providedHookEntity = (InspectionHookEntity) getInspectionHook(providedHook.getHookId());
+        this.utils.throwExceptionIfCannotFindById(providedHookEntity, "Inspection Hook", providedHook.getHookId());
+
+        NetworkElementEntity providedInspectedPortEntity = providedHookEntity.getInspectedPort();
+
+        if (!providedInspectedPortEntity.getElementId().equals(providedInspectedPort.getElementId())) {
+            throw new IllegalStateException(
+                    String.format("Cannot update Inspected Port from %s to %s for the Inspection hook %s",
+                            providedInspectedPortEntity.getElementId(), providedInspectedPort.getElementId(),
+                            providedHookEntity.getHookId()));
+        }
+        ServiceFunctionChainEntity newSfc = this.utils.findBySfcId(providedInspectionPort.getElementId());
+        this.utils.throwExceptionIfCannotFindById(newSfc, "Service Function Chain",
+                providedInspectionPort.getElementId());
+
+        this.txControl.required(() -> {
+            providedHookEntity.setServiceFunctionChain(newSfc);
+            newSfc.getInspectionHooks().add(providedHookEntity);
+
+            this.em.merge(newSfc);
+            this.em.merge(providedHookEntity);
+            return null;
+        });
+
     }
 
     @Override

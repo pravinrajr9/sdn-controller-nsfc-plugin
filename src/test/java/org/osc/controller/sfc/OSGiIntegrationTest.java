@@ -32,6 +32,7 @@ import javax.inject.Inject;
 import javax.persistence.EntityManager;
 import javax.sql.DataSource;
 
+import org.hamcrest.core.StringStartsWith;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -518,7 +519,7 @@ public class OSGiIntegrationTest {
     // Inspection hooks test
 
     @Test
-    public void testApiInstallInspectionHook() throws Exception {
+    public void testApiInstallInspectionHook_VerifySucceeds() throws Exception {
         persistInspectionPort();
         this.txControl.required(() -> {
 
@@ -546,6 +547,78 @@ public class OSGiIntegrationTest {
         assertNotNull(inspectionHookElement);
         assertNotNull(inspectionHookElement.getHookId());
         assertEquals(inspectionHookElement.getInspectedPort().getElementId(), this.inspected.getElementId());
+    }
+
+    @Test
+    public void testApiInstallInspectionHook_WithNoInspectedPort_VerifyFails() throws Exception {
+
+        this.exception.expect(IllegalArgumentException.class);
+        this.exception.expectMessage("null passed for Inspection port !");
+
+        this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
+
+        this.redirApi.installInspectionHook(this.inspected, this.sfc, 0L, VLAN, 0L,
+                NA);
+
+        // Inspected port with non-existing id
+        this.exception.expect(IllegalArgumentException.class);
+        this.exception.expectMessage(StringStartsWith.startsWith("Cannot find type Service Function Chain"));
+
+        this.redirApi.installInspectionHook(this.inspected, new ServiceFunctionChainEntity("foo"), 0L, VLAN, 0L,
+                NA);
+    }
+
+    @Test
+    public void testApiUpdateInspectionHook_WithExistingHook_VerifySucceeds() throws Exception {
+        persistInspectionHook();
+
+        String hookId = this.inspectionHook.getHookId();
+
+        this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
+
+        // Setup new SFC
+        InspectionPortElement inspectionPort = new InspectionPortEntity(null,
+                null,
+                new NetworkElementEntity("IngressFoo", asList("IngressMac"), asList("IngressIP"), null),
+                new NetworkElementEntity("EgressFoo", asList("EgressMac"), asList("EgressIP"), null));
+
+        Element portPairEntity = this.redirApi.registerInspectionPort(inspectionPort);
+
+        ServiceFunctionChainEntity newSfc = this.txControl.required(() -> {
+            ServiceFunctionChainEntity tmpSfc = new ServiceFunctionChainEntity();
+            tmpSfc.getPortPairGroups().add(new PortPairGroupEntity(portPairEntity.getParentId()));
+            this.em.persist(tmpSfc);
+            return tmpSfc;
+        });
+
+        InspectionHookEntity updatedHook = new InspectionHookEntity(this.inspected, newSfc);
+        updatedHook.setHookId(hookId);
+
+        // Act
+        this.redirApi.updateInspectionHook(updatedHook);
+
+        this.txControl.required(() -> {
+            InspectionHookEntity tmp = this.em.find(InspectionHookEntity.class, hookId);
+            assertNotNull(tmp);
+            assertEquals(tmp.getServiceFunctionChain().getElementId(), newSfc.getElementId());
+            return null;
+        });
+    }
+
+    @Test
+    public void testApiUpdateInspectionHook_WithMissingHook_VerifyFailure() throws Exception {
+        persistInspectionPortAndSfc();
+
+        this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
+
+        InspectionHookEntity updatedHook = new InspectionHookEntity(this.inspected, this.sfc);
+        updatedHook.setHookId("non-existing-id");
+
+        this.exception.expect(IllegalArgumentException.class);
+        this.exception.expectMessage(StringStartsWith.startsWith("Cannot find Inspection Hook"));
+
+        // Act
+        this.redirApi.updateInspectionHook(updatedHook);
     }
 
     @Test
@@ -599,7 +672,22 @@ public class OSGiIntegrationTest {
             this.inspectionPort.setPortPairGroup(this.ppg);
             this.em.persist(this.inspectionPort);
 
+            this.ppg.getPortPairs().add(this.inspectionPort);
+
+            this.em.merge(this.ppg);
             return this.inspectionPort;
+        });
+    }
+
+    private ServiceFunctionChainEntity persistInspectionPortAndSfc() {
+        persistInspectionPort();
+        return this.txControl.required(() -> {
+            this.sfc.getPortPairGroups().add(this.ppg);
+            this.em.persist(this.sfc);
+
+            this.ppg.setServiceFunctionChain(this.sfc);
+            this.em.merge(this.ppg);
+            return this.sfc;
         });
     }
 
@@ -608,6 +696,9 @@ public class OSGiIntegrationTest {
         return this.txControl.required(() -> {
             this.sfc.getPortPairGroups().add(this.ppg);
             this.em.persist(this.sfc);
+
+            this.ppg.setServiceFunctionChain(this.sfc);
+            this.em.merge(this.ppg);
 
             this.em.persist(this.inspected);
 

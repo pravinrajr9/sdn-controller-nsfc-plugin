@@ -58,15 +58,15 @@ public class RedirectionApiUtils {
     }
 
     public InspectionPortEntity makeInspectionPortEntity(InspectionPortElement inspectionPortElement) {
-        throwExceptionIfNullElement(inspectionPortElement, "Ins");
+        throwExceptionIfNullElement(inspectionPortElement, "Inspection Port");
 
         NetworkElement ingress = inspectionPortElement.getIngressPort();
-        throwExceptionIfNullElement(ingress, "Null ingress element.");
+        throwExceptionIfNullElement(ingress, "ingress element.");
         NetworkElementEntity ingressEntity = makeNetworkElementEntity(ingress);
 
         NetworkElement egress = inspectionPortElement.getEgressPort();
         NetworkElementEntity egressEntity = null;
-        throwExceptionIfNullElement(egress, "Null egeress element.");
+        throwExceptionIfNullElement(egress, "egress element.");
 
         if (ingressEntity != null && ingressEntity.getElementId().equals(egress.getElementId())) {
             egressEntity = ingressEntity;
@@ -82,7 +82,7 @@ public class RedirectionApiUtils {
     public InspectionHookEntity makeInspectionHookEntity(NetworkElement inspectedPort,
             NetworkElement sfcNetworkElement) {
 
-        throwExceptionIfNullElement(inspectedPort, "Null inspected port!");
+        throwExceptionIfNullElement(inspectedPort, "inspected port!");
 
         ServiceFunctionChainEntity sfc = findBySfcId(sfcNetworkElement.getElementId());
 
@@ -223,31 +223,34 @@ public class RedirectionApiUtils {
         });
     }
 
-    public void throwExceptionIfNullEntity(InspectionPortEntity inspectionPortTmp, InspectionPortElement inspectionPort)
-            throws IllegalArgumentException {
-        if (inspectionPortTmp == null) {
-            String msg = String.format(
-                    "Cannot find inspection port for inspection hook " + "id: %s; ingress: %s; egress: %s\n",
-                    inspectionPort.getElementId(),
-                    "" + inspectionPort.getIngressPort(),
-                    "" + inspectionPort.getEgressPort());
-            LOG.error(msg);
-            throw new IllegalArgumentException(msg);
-        }
-    }
-
+    /**
+     * Throw exception message in the format "null passed for 'type'!"
+     */
     public void throwExceptionIfNullElement(Element element, String type) {
         if (element == null) {
-            String msg = String.format("null passed for %s argument!", type);
+            String msg = String.format("null passed for %s !", type);
             LOG.error(msg);
             throw new IllegalArgumentException(msg);
         }
     }
 
+    /**
+     * Throw exception message in the format "null passed for 'type'!"
+     */
+    public void throwExceptionIfNullElementAndId(Element element, String type) {
+        if (element == null || element.getElementId() == null) {
+            String msg = String.format("null passed for %s !", type);
+            LOG.error(msg);
+            throw new IllegalArgumentException(msg);
+        }
+    }
 
-    private void throwExceptionIfNullElement(NetworkElement networkElement, String msg) {
-        if (networkElement == null) {
-            msg = (msg != null ? msg : "null passed for Network Element argument!");
+    /**
+     * Throw exception message in the format "Cannot find type by id: id!"
+     */
+    public void throwExceptionIfCannotFindById(Object element, String type, String id) {
+        if (element == null) {
+            String msg = String.format("Cannot find %s by id: %s!", type, id);
             LOG.error(msg);
             throw new IllegalArgumentException(msg);
         }
