@@ -28,7 +28,7 @@ import javax.persistence.EntityManager;
 import javax.sql.DataSource;
 
 import org.apache.commons.lang.NotImplementedException;
-import org.apache.log4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.osc.sdk.controller.FlowInfo;
 import org.osc.sdk.controller.FlowPortInfo;
 import org.osc.sdk.controller.Status;
@@ -41,6 +41,7 @@ import org.osgi.service.jdbc.DataSourceFactory;
 import org.osgi.service.jpa.EntityManagerFactoryBuilder;
 import org.osgi.service.transaction.control.TransactionControl;
 import org.osgi.service.transaction.control.jpa.JPAEntityManagerProviderFactory;
+import org.slf4j.Logger;
 
 @Component(configurationPid = "org.osc.nsfc.SdnController",
     property = { PLUGIN_NAME + "=Neutron-sfc",
@@ -65,7 +66,7 @@ public class NeutronSfcSdnControllerApi implements SdnControllerApi {
     @Reference(target = "(osgi.local.enabled=true)")
     private JPAEntityManagerProviderFactory resourceFactory;
 
-    static Logger LOG = Logger.getLogger(NeutronSfcSdnControllerApi.class);
+    private static final Logger LOG = LoggerFactory.getLogger(NeutronSfcSdnControllerApi.class);
 
     private final static String VERSION = "0.1";
     private final static String NAME = "Neutron-sfc";
@@ -101,7 +102,7 @@ public class NeutronSfcSdnControllerApi implements SdnControllerApi {
         try {
             ds = this.jdbcFactory.createDataSource(props);
         } catch (SQLException e) {
-            LOG.error(e);
+            LOG.error(e.getMessage(), e);
             throw new IllegalStateException(e.getMessage(), e);
         }
 

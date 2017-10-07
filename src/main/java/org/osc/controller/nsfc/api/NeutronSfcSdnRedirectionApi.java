@@ -20,12 +20,12 @@ import java.util.List;
 
 import javax.persistence.EntityManager;
 
-import org.apache.log4j.Logger;
 import org.osc.controller.nsfc.entities.InspectionHookEntity;
 import org.osc.controller.nsfc.entities.InspectionPortEntity;
 import org.osc.controller.nsfc.entities.NetworkElementEntity;
 import org.osc.controller.nsfc.entities.PortPairGroupEntity;
 import org.osc.controller.nsfc.entities.ServiceFunctionChainEntity;
+import org.slf4j.LoggerFactory;
 import org.osc.controller.nsfc.utils.RedirectionApiUtils;
 import org.osc.sdk.controller.FailurePolicyType;
 import org.osc.sdk.controller.TagEncapsulationType;
@@ -36,10 +36,11 @@ import org.osc.sdk.controller.element.InspectionPortElement;
 import org.osc.sdk.controller.element.NetworkElement;
 import org.osc.sdk.controller.exception.NetworkPortNotFoundException;
 import org.osgi.service.transaction.control.TransactionControl;
+import org.slf4j.Logger;
 
 public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
 
-    private static final Logger LOG = Logger.getLogger(NeutronSfcSdnRedirectionApi.class);
+    private static final Logger LOG = LoggerFactory.getLogger(NeutronSfcSdnRedirectionApi.class);
 
     private TransactionControl txControl;
     private EntityManager em;

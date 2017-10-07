@@ -24,7 +24,6 @@ import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.Root;
 
-import org.apache.log4j.Logger;
 import org.osc.controller.nsfc.entities.InspectionHookEntity;
 import org.osc.controller.nsfc.entities.InspectionPortEntity;
 import org.osc.controller.nsfc.entities.NetworkElementEntity;
@@ -34,10 +33,12 @@ import org.osc.sdk.controller.element.Element;
 import org.osc.sdk.controller.element.InspectionPortElement;
 import org.osc.sdk.controller.element.NetworkElement;
 import org.osgi.service.transaction.control.TransactionControl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class RedirectionApiUtils {
 
-    private static final Logger LOG = Logger.getLogger(RedirectionApiUtils.class);
+    private static final Logger LOG = LoggerFactory.getLogger(RedirectionApiUtils.class);
 
     private TransactionControl txControl;
     private EntityManager em;
@@ -120,33 +121,33 @@ public class RedirectionApiUtils {
     public InspectionPortEntity findInspectionPortByNetworkElements(NetworkElement ingress, NetworkElement egress) {
         return this.txControl.required(() -> {
 
-            String ingressId = ingress != null ? ingress.getElementId() : null;
-            String egressId = ingress != null ? egress.getElementId() : null;
+        String ingressId = ingress != null ? ingress.getElementId() : null;
+        String egressId = ingress != null ? egress.getElementId() : null;
 
-            CriteriaBuilder cb = this.em.getCriteriaBuilder();
-            CriteriaQuery<InspectionPortEntity> criteria = cb.createQuery(InspectionPortEntity.class);
-            Root<InspectionPortEntity> root = criteria.from(InspectionPortEntity.class);
+        CriteriaBuilder cb = this.em.getCriteriaBuilder();
+        CriteriaQuery<InspectionPortEntity> criteria = cb.createQuery(InspectionPortEntity.class);
+        Root<InspectionPortEntity> root = criteria.from(InspectionPortEntity.class);
             criteria.select(root).where(cb.and(cb.equal(root.join("ingressPort").get("elementId"), ingressId),
-                    cb.equal(root.join("egressPort").get("elementId"), egressId)));
-            Query q = this.em.createQuery(criteria);
+                cb.equal(root.join("egressPort").get("elementId"), egressId)));
+        Query q= this.em.createQuery(criteria);
 
-            try {
-                @SuppressWarnings("unchecked")
-                List<InspectionPortEntity> ports = q.getResultList();
-                if (ports == null || ports.size() == 0) {
-                    LOG.warn(String.format("No Inspection Ports by ingress %s and egress %s", ingressId, egressId));
-                    return null;
-                } else if (ports.size() > 1) {
-                    LOG.warn(String.format("Multiple results! Inspection Ports by ingress %s and egress %s", ingressId,
-                            egressId));
-                }
-                return ports.get(0);
-
-            } catch (Exception e) {
-                LOG.error(String.format("Finding Inspection Ports by ingress %s and egress %s", ingress.getElementId(),
-                        egress.getElementId()), e);
+        try {
+            @SuppressWarnings("unchecked")
+            List<InspectionPortEntity> ports = q.getResultList();
+            if (ports == null || ports.size() == 0) {
+                LOG.warn(String.format("No Inspection Ports by ingress %s and egress %s", ingressId, egressId));
                 return null;
+            } else if (ports.size() > 1) {
+                LOG.warn(String.format("Multiple results! Inspection Ports by ingress %s and egress %s", ingressId,
+                        egressId));
             }
+            return ports.get(0);
+
+        } catch (Exception e) {
+            LOG.error(String.format("Finding Inspection Ports by ingress %s and egress %s", ingress.getElementId(),
+                    egress.getElementId()), e);
+            return null;
+        }
         });
     }
 
@@ -180,7 +181,6 @@ public class RedirectionApiUtils {
 
     public void removeSingleInspectionPort(String inspectionPortId) {
         this.txControl.required(() -> {
-
             InspectionPortEntity inspectionPort = this.em.find(InspectionPortEntity.class, inspectionPortId);
             this.em.remove(inspectionPort);
             return null;
