@@ -16,12 +16,12 @@
  *******************************************************************************/
 package org.osc.controller.nsfc;
 
-import static java.util.Arrays.asList;
-import static java.util.Collections.singletonMap;
+import static java.util.Arrays.*;
+import static java.util.Collections.*;
 import static org.junit.Assert.*;
 import static org.ops4j.pax.exam.CoreOptions.*;
-import static org.osc.sdk.controller.FailurePolicyType.NA;
-import static org.osc.sdk.controller.TagEncapsulationType.VLAN;
+import static org.osc.sdk.controller.FailurePolicyType.*;
+import static org.osc.sdk.controller.TagEncapsulationType.*;
 import static org.osgi.service.jdbc.DataSourceFactory.*;
 
 import java.io.File;
@@ -568,6 +568,27 @@ public class OSGiIntegrationTest {
 
         this.redirApi.installInspectionHook(this.inspected, new ServiceFunctionChainEntity("foo"), 0L, VLAN, 0L,
                 NA);
+    }
+
+    @Test
+    public void testApiInstallInspectionHook_WithExistingHook_VerifyFails() throws Exception {
+        persistInspectionPort();
+        this.txControl.required(() -> {
+
+            this.sfc.getPortPairGroups().add(this.ppg);
+            this.em.persist(this.sfc);
+
+            return null;
+        });
+
+        this.exception.expect(IllegalStateException.class);
+        this.exception.expectMessage(StringStartsWith.startsWith("Found existing inspection hook"));
+
+        this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
+
+        this.redirApi.installInspectionHook(this.inspected, this.sfc, 0L, VLAN, 0L, NA);
+
+        this.redirApi.installInspectionHook(this.inspected, this.sfc, 0L, VLAN, 0L, NA);
     }
 
     @Test

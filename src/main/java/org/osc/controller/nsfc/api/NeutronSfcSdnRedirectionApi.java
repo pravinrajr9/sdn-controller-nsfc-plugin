@@ -25,7 +25,6 @@ import org.osc.controller.nsfc.entities.InspectionPortEntity;
 import org.osc.controller.nsfc.entities.NetworkElementEntity;
 import org.osc.controller.nsfc.entities.PortPairGroupEntity;
 import org.osc.controller.nsfc.entities.ServiceFunctionChainEntity;
-import org.slf4j.LoggerFactory;
 import org.osc.controller.nsfc.utils.RedirectionApiUtils;
 import org.osc.sdk.controller.FailurePolicyType;
 import org.osc.sdk.controller.TagEncapsulationType;
@@ -37,6 +36,7 @@ import org.osc.sdk.controller.element.NetworkElement;
 import org.osc.sdk.controller.exception.NetworkPortNotFoundException;
 import org.osgi.service.transaction.control.TransactionControl;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
 
@@ -166,18 +166,18 @@ public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
         ServiceFunctionChainEntity sfc = this.utils.findBySfcId(inspectionPort.getElementId());
         this.utils.throwExceptionIfCannotFindById(sfc, "Service Function Chain", inspectionPort.getElementId());
 
-        InspectionHookEntity retValEntity = this.txControl.required(() -> {
-            InspectionHookEntity inspectionHookEntity = this.utils.findInspHookByInspectedAndPort(inspectedPort, sfc);
+        InspectionHookEntity inspectionHookEntity = this.utils.findInspHookByInspectedAndPort(inspectedPort, sfc);
+        if (inspectionHookEntity != null) {
+            String msg = String.format("Found existing inspection hook (Inspected %s ; Inspection Port %s)",
+                    inspectedPort, inspectionPort);
+            LOG.error(msg + " " + inspectionHookEntity);
+            throw new IllegalStateException(msg);
+        }
 
-            if (inspectionHookEntity == null) {
-                inspectionHookEntity = this.utils.makeInspectionHookEntity(inspectedPort, sfc);
-            } else {
-                String msg = String.format("Found existing inspection hook (Inspected %s ; Inspection Port %s)",
-                        inspectedPort, inspectionPort);
-                LOG.error(msg + " " + inspectionHookEntity);
-                throw new IllegalStateException(msg);
-            }
-            return this.em.merge(inspectionHookEntity);
+        InspectionHookEntity retValEntity = this.txControl.required(() -> {
+
+            InspectionHookEntity createdHookEntity = this.utils.makeInspectionHookEntity(inspectedPort, sfc);
+            return this.em.merge(createdHookEntity);
         });
 
         return retValEntity.getHookId();
