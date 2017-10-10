@@ -16,6 +16,7 @@
  *******************************************************************************/
 package org.osc.controller.nsfc.api;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.persistence.EntityManager;
@@ -246,25 +247,78 @@ public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
 
     // SFC methods
     @Override
-    public NetworkElement registerNetworkElement(List<NetworkElement> inspectedPorts) throws Exception {
-        return null;
+    public NetworkElement registerNetworkElement(List<NetworkElement> portPairGroupList) throws Exception {
+
+        ServiceFunctionChainEntity sfc = new ServiceFunctionChainEntity();
+        //check for null or empty list
+        this.utils.throwExceptionIfNullOrEmptyNetworkElementList(portPairGroupList, "Port Pair Group member list");
+
+        List<PortPairGroupEntity> ppgList = this.utils.validateAndAdd(portPairGroupList, sfc);
+
+        return this.txControl.required(() -> {
+            this.em.persist(sfc);
+            for(PortPairGroupEntity ppg : ppgList) {
+                this.em.merge(ppg);
+            }
+            return sfc;
+        });
+
     }
 
     @Override
-    public NetworkElement updateNetworkElement(NetworkElement portGroup, List<NetworkElement> inspectedPorts)
+    public NetworkElement updateNetworkElement(NetworkElement serviceFunctionChain, List<NetworkElement> portPairGroupList)
             throws Exception {
-        // no-op
-        return null;
+
+        this.utils.throwExceptionIfNullElementAndId(serviceFunctionChain, "Port Pair Group Service Function Chain Id");
+        this.utils.throwExceptionIfNullOrEmptyNetworkElementList(portPairGroupList, "Port Pair Group update member list");
+
+        ServiceFunctionChainEntity sfc = this.utils.findBySfcId(serviceFunctionChain.getElementId());
+        this.utils.throwExceptionIfCannotFindById(sfc, "Service Function Chain", serviceFunctionChain.getElementId());
+
+
+        this.utils.validateAndClear(sfc);
+        List<PortPairGroupEntity> ppgList = this.utils.validateAndAdd(portPairGroupList, sfc);
+
+        return this.txControl.required(() -> {
+            this.em.merge(sfc);
+            for(PortPairGroupEntity ppg : ppgList) {
+                this.em.merge(ppg);
+            }
+            return sfc;
+        });
     }
 
     @Override
-    public void deleteNetworkElement(NetworkElement portGroupId) throws Exception {
-        // no-op
+    public void deleteNetworkElement(NetworkElement serviceFunctionChain) throws Exception {
+
+        this.utils.throwExceptionIfNullElementAndId(serviceFunctionChain, "Service Function Chain Id");
+
+        ServiceFunctionChainEntity sfc = this.utils.findBySfcId(serviceFunctionChain.getElementId());
+        this.utils.throwExceptionIfCannotFindById(sfc, "Service Function Chain", serviceFunctionChain.getElementId());
+
+        this.txControl.required(() -> {
+            //For delete fetch sfc in a transaction
+            ServiceFunctionChainEntity sfcToDel = this.em.find(ServiceFunctionChainEntity.class,
+                    serviceFunctionChain.getElementId());
+
+            for (PortPairGroupEntity ppg : sfcToDel.getPortPairGroups()) {
+                ppg.setServiceFunctionChain(null);
+                this.em.merge(ppg);
+            }
+            this.em.remove(sfcToDel);
+            return null;
+        });
     }
 
     @Override
-    public List<NetworkElement> getNetworkElements(NetworkElement element) throws Exception {
-        return null;
+    public List<NetworkElement> getNetworkElements(NetworkElement serviceFunctionChain) throws Exception {
+
+        this.utils.throwExceptionIfNullElementAndId(serviceFunctionChain, "Service Function Chain Id");
+
+        ServiceFunctionChainEntity sfc = this.utils.findBySfcId(serviceFunctionChain.getElementId());
+        this.utils.throwExceptionIfCannotFindById(sfc, "Service Function Chain", serviceFunctionChain.getElementId());
+
+        return new ArrayList<>(sfc.getPortPairGroups());
     }
 
     // Unsupported operations in SFC

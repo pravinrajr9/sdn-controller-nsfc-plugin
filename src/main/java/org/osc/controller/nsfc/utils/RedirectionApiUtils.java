@@ -16,6 +16,7 @@
  *******************************************************************************/
 package org.osc.controller.nsfc.utils;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.persistence.EntityManager;
@@ -223,6 +224,38 @@ public class RedirectionApiUtils {
         });
     }
 
+    public List<PortPairGroupEntity> validateAndAdd(List<NetworkElement> portPairGroups, ServiceFunctionChainEntity sfc) {
+        List<PortPairGroupEntity> ppgList = new ArrayList<PortPairGroupEntity>();
+
+        for (NetworkElement ne : portPairGroups) {
+            throwExceptionIfNullElementAndId(ne, "Port Pair Group Id");
+            PortPairGroupEntity ppg = findByPortPairgroupId(ne.getElementId());
+            throwExceptionIfCannotFindById(ppg, "Port Pair Group", ne.getElementId());
+            if (ppg.getServiceFunctionChain() != null) {
+                throw new IllegalArgumentException(
+                        String.format("Port Pair Group Id %s is already chained to SFC Id : %s ", ne.getElementId(),
+                                ppg.getServiceFunctionChain().getElementId()));
+            }
+
+            ppg.setServiceFunctionChain(sfc);
+            ppgList.add(ppg);
+        }
+        sfc.setPortPairGroups(ppgList);
+        return ppgList;
+    }
+
+    public void validateAndClear(ServiceFunctionChainEntity sfc) {
+
+        this.txControl.required(() -> {
+        for(PortPairGroupEntity ppg : sfc.getPortPairGroups()) {
+              ppg.setServiceFunctionChain(null);
+              this.em.merge(ppg);
+            }
+            return null;
+        });
+        sfc.getPortPairGroups().clear();
+    }
+
     /**
      * Throw exception message in the format "null passed for 'type'!"
      */
@@ -255,4 +288,26 @@ public class RedirectionApiUtils {
             throw new IllegalArgumentException(msg);
         }
     }
+
+    /**
+     * Throw exception message in the format "null passed for 'type'!"
+     */
+    public void throwExceptionIfNullOrEmptyNetworkElementList(List<NetworkElement> neList, String type) {
+        if (neList == null || neList.isEmpty()) {
+            String msg = String.format("null passed for %s !", type);
+            LOG.error(msg);
+            throw new IllegalArgumentException(msg);
+        }
+    }
+
+    /**
+    * Throw exception message in the format "null passed for 'type'!"
+    */
+   public void throwExceptionIfNullElementAndParentId(Element element, String type) {
+       if (element == null || element.getParentId() == null) {
+           String msg = String.format("null passed for %s !", type);
+           LOG.error(msg);
+           throw new IllegalArgumentException(msg);
+       }
+   }
 }

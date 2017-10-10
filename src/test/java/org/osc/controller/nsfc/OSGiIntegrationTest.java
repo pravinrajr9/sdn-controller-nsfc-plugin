@@ -16,16 +16,19 @@
  *******************************************************************************/
 package org.osc.controller.nsfc;
 
-import static java.util.Arrays.*;
-import static java.util.Collections.*;
+import static java.util.Arrays.asList;
+import static java.util.Collections.singletonMap;
 import static org.junit.Assert.*;
 import static org.ops4j.pax.exam.CoreOptions.*;
-import static org.osc.sdk.controller.FailurePolicyType.*;
-import static org.osc.sdk.controller.TagEncapsulationType.*;
+import static org.osc.sdk.controller.FailurePolicyType.NA;
+import static org.osc.sdk.controller.TagEncapsulationType.VLAN;
 import static org.osgi.service.jdbc.DataSourceFactory.*;
 
 import java.io.File;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Properties;
 
 import javax.inject.Inject;
@@ -52,10 +55,12 @@ import org.osc.controller.nsfc.entities.NetworkElementEntity;
 import org.osc.controller.nsfc.entities.PortPairGroupEntity;
 import org.osc.controller.nsfc.entities.ServiceFunctionChainEntity;
 import org.osc.controller.nsfc.utils.RedirectionApiUtils;
+import org.osc.sdk.controller.DefaultNetworkPort;
 import org.osc.sdk.controller.api.SdnControllerApi;
 import org.osc.sdk.controller.element.Element;
 import org.osc.sdk.controller.element.InspectionHookElement;
 import org.osc.sdk.controller.element.InspectionPortElement;
+import org.osc.sdk.controller.element.NetworkElement;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.ServiceReference;
 import org.osgi.service.jdbc.DataSourceFactory;
@@ -688,6 +693,400 @@ public class OSGiIntegrationTest {
         assertEquals(inspectionHookElement.getInspectedPort().getElementId(), this.inspected.getElementId());
     }
 
+    @Test
+    public void testRegisterNetworkElementWithNullPPGList_ThrowsIllegalArgumentException() throws Exception {
+        // Arrange
+        this.exception.expect(IllegalArgumentException.class);
+        this.exception.expectMessage(String.format("null passed for %s !", "Port Pair Group member list"));
+        this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
+
+        // Act
+        this.redirApi.registerNetworkElement(null);
+    }
+
+    @Test
+    public void testRegisterNetworkElementWithEmptyPPGList_ThrowsIllegalArgumentException() throws Exception {
+        // Arrange
+        List<NetworkElement> neList = new ArrayList<NetworkElement>();
+
+        this.exception.expect(IllegalArgumentException.class);
+        this.exception.expectMessage(String.format("null passed for %s !", "Port Pair Group member list"));
+        this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
+
+        // Act
+        this.redirApi.registerNetworkElement(neList);
+    }
+
+    @Test
+    public void testRegisterNetworkElementWithPpgIdNull_ThrowsIllegalArgumentException() throws Exception {
+        // Arrange
+
+        List<NetworkElement> neList = new ArrayList<NetworkElement>();
+        DefaultNetworkPort ne = new DefaultNetworkPort();
+        neList.add(ne);
+
+        this.exception.expect(IllegalArgumentException.class);
+        this.exception.expectMessage(String.format("null passed for %s !",  "Port Pair Group Id"));
+        this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
+
+        // Act
+        this.redirApi.registerNetworkElement(neList);
+    }
+
+    @Test
+    public void testRegisterNetworkElementWithInvalidPpgId_ThrowsIllegalArgumentException() throws Exception {
+        // Arrange
+
+        List<NetworkElement> neList = new ArrayList<NetworkElement>();
+        DefaultNetworkPort ne = new DefaultNetworkPort();
+        ne.setElementId("badId");
+        neList.add(ne);
+
+        this.exception.expect(IllegalArgumentException.class);
+        this.exception.expectMessage(String.format("Cannot find %s by id: %s!", "Port Pair Group", ne.getElementId()));
+        this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
+
+
+        // Act
+        this.redirApi.registerNetworkElement(neList);
+    }
+
+    @Test
+    public void testRegisterNetworkElementWithPpgIdIsChainedToAnotherSfc_ThrowsIllegalArgumentException()
+            throws Exception {
+        // Arrange
+        persistInspectionPortAndSfc();
+        List<NetworkElement> neList = new ArrayList<NetworkElement>();
+        DefaultNetworkPort ne = new DefaultNetworkPort();
+        ne.setElementId(this.ppg.getElementId());
+        neList.add(ne);
+
+        this.exception.expect(IllegalArgumentException.class);
+        this.exception
+                .expectMessage(String.format(String.format("Port Pair Group Id %s is already chained to SFC Id : %s ",
+                        ne.getElementId(), this.ppg.getServiceFunctionChain().getElementId())));
+        this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
+
+        // Act
+        this.redirApi.registerNetworkElement(neList);
+    }
+
+    @Test
+    public void testRegisterNetworkElement_VerifySuccess() throws Exception {
+        // Arrange
+        persistInspectionPort();
+        List<NetworkElement> neList = new ArrayList<NetworkElement>();
+        DefaultNetworkPort ne = new DefaultNetworkPort();
+        ne.setElementId(this.ppg.getElementId());
+        neList.add(ne);
+
+        this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
+
+
+        // Act
+        NetworkElement neResponse=  this.redirApi.registerNetworkElement(neList);
+        this.txControl.required(() -> {
+            ServiceFunctionChainEntity sfc = this.em.find(ServiceFunctionChainEntity.class, neResponse.getElementId());
+            assertNotNull("SFC is not to be found after creation", sfc);
+            return null;
+        });
+    }
+
+    @Test
+    public void testUpdateNetworkElementWithNullSfc_ThrowsIllegalArgumentException() throws Exception {
+        // Arrange
+        List<NetworkElement> neList = new ArrayList<NetworkElement>();
+        this.exception.expect(IllegalArgumentException.class);
+        this.exception.expectMessage(
+                String.format(String.format("null passed for %s !", "Port Pair Group Service Function Chain Id")));
+        this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
+
+        // Act
+        this.redirApi.updateNetworkElement(null, neList);
+    }
+
+    @Test
+    public void testUpdateNetworkElementWithSfcIdNull_ThrowsIllegalArgumentException() throws Exception {
+        // Arrange
+        List<NetworkElement> neList = new ArrayList<NetworkElement>();
+        DefaultNetworkPort ne = new DefaultNetworkPort();
+        this.exception.expect(IllegalArgumentException.class);
+        this.exception.expectMessage(String.format("null passed for %s !", "Port Pair Group Service Function Chain Id"));
+        this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
+
+        // Act
+        this.redirApi.updateNetworkElement(ne, neList);
+    }
+
+    @Test
+    public void testUpdateNetworkElementWithNullUpdatedPpgList_ThrowsIllegalArgumentException() throws Exception {
+        // Arrange
+        DefaultNetworkPort ne = new DefaultNetworkPort();
+        this.exception.expect(IllegalArgumentException.class);
+        this.exception.expectMessage(String.format("null passed for %s !", "Port Pair Group update member list"));
+        this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
+        ne.setElementId("goodid");
+
+        // Act
+        this.redirApi.updateNetworkElement(ne, null);
+    }
+
+    @Test
+    public void testUpdateNetworkElementWithEmptyUpdatedPpgList_ThrowsIllegalArgumentException() throws Exception {
+        // Arrange
+        List<NetworkElement> neList = new ArrayList<NetworkElement>();
+        DefaultNetworkPort ne = new DefaultNetworkPort();
+        this.exception.expect(IllegalArgumentException.class);
+        this.exception.expectMessage(String.format("null passed for %s !", "Port Pair Group update member list"));
+        this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
+        ne.setElementId("goodid");
+
+        // Act
+        this.redirApi.updateNetworkElement(ne, neList);
+    }
+
+    @Test
+    public void testUpdateNetworkElementWhenSfcToUpdateIsNotFound_ThrowsIllegalArgumentException() throws Exception {
+        // Arrange
+
+        List<NetworkElement> neList = new ArrayList<NetworkElement>();
+        DefaultNetworkPort ne = new DefaultNetworkPort();
+        this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
+
+        ne.setElementId("bad-id");
+        neList.add(ne);
+
+        this.exception.expect(IllegalArgumentException.class);
+        this.exception
+                .expectMessage(String.format("Cannot find %s by id: %s!", "Service Function Chain", ne.getElementId()));
+
+        // Act
+        this.redirApi.updateNetworkElement(ne, neList);
+    }
+
+    @Test
+    public void testUpdateNetworkElementWhenPpgIdIsNullInUpdatedList_ThrowsIllegalArgumentException() throws Exception {
+        // Arrange
+        persistInspectionPortAndSfc();
+
+        List<NetworkElement> neList = new ArrayList<NetworkElement>();
+        DefaultNetworkPort sfc = new DefaultNetworkPort();
+        DefaultNetworkPort ne = new DefaultNetworkPort();
+        this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
+
+        sfc.setElementId(this.sfc.getElementId());
+
+        ne.setParentId("BadId");
+        neList.add(ne);
+
+        this.exception.expect(IllegalArgumentException.class);
+        this.exception.expectMessage(String.format("null passed for %s !", "Port Pair Group Id"));
+
+        // Act
+        this.redirApi.updateNetworkElement(sfc, neList);
+    }
+
+    @Test
+    public void testUpdateNetworkElementWhenPpgIdInUpdatedListIsNotFound_ThrowsIllegalArgumentException()
+            throws Exception {
+        // Arrange
+        persistInspectionPortAndSfc();
+
+        List<NetworkElement> neList = new ArrayList<NetworkElement>();
+        DefaultNetworkPort sfcTest = new DefaultNetworkPort();
+        DefaultNetworkPort ne = new DefaultNetworkPort();
+        this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
+
+        sfcTest.setElementId(this.sfc.getElementId());
+
+        ne.setElementId("BadPpgId");
+        ne.setParentId(this.sfc.getElementId());
+        neList.add(ne);
+
+        this.exception.expect(IllegalArgumentException.class);
+        this.exception.expectMessage(String.format("Cannot find %s by id: %s!", "Port Pair Group", ne.getElementId()));
+
+        // Act
+        this.redirApi.updateNetworkElement(sfcTest, neList);
+    }
+
+    @Test
+    public void testUpdateNetworkElementWhenPpgIdIsChainedToSameSfc_VerifySuccessful()
+            throws Exception {
+        // Arrange
+        persistInspectionPortAndSfc();
+
+        List<NetworkElement> neList = new ArrayList<NetworkElement>();
+        DefaultNetworkPort ne = new DefaultNetworkPort();
+        DefaultNetworkPort sfcTest = new DefaultNetworkPort();
+
+        sfcTest.setElementId(this.sfc.getElementId());
+
+        ne.setElementId(this.ppg.getElementId());
+        neList.add(ne);
+
+        this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
+
+        // Act
+        NetworkElement sfcReturn = this.redirApi.updateNetworkElement(sfcTest, neList);
+        Assert.assertEquals("Return Sfc is not equal tosfc", this.sfc.getElementId(), sfcReturn.getElementId());
+    }
+
+    @Test
+    public void testUpdateNetworkElement_VerifySuccessful() throws Exception {
+        // Arrange
+        List<PortPairGroupEntity> ppgList = persistNInspectionPort(4);
+        ServiceFunctionChainEntity sfcPersist = persistNppgsInSfc(ppgList);
+
+        List<NetworkElement> neReverseList = new ArrayList<NetworkElement>();
+        DefaultNetworkPort sfcTest = new DefaultNetworkPort();
+
+        this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
+
+        sfcTest.setElementId(sfcPersist.getElementId());
+
+        Collections.reverse(ppgList);
+        List<String> ppgListSrc = new ArrayList<String>();
+        for(PortPairGroupEntity ppg_local : ppgList) {
+            DefaultNetworkPort ne = new DefaultNetworkPort();
+            ne.setElementId(ppg_local.getElementId());
+            ne.setParentId(sfcPersist.getElementId());
+            neReverseList.add(ne);
+            ppgListSrc.add(ppg_local.getElementId());
+        }
+
+        // Act
+        NetworkElement neResponse = this.redirApi.updateNetworkElement(sfcTest, neReverseList);
+        this.txControl.required(() -> {
+            ServiceFunctionChainEntity sfcTarget = this.em.find(ServiceFunctionChainEntity.class, neResponse.getElementId());
+            assertNotNull("SFC is not to be found after creation", sfcTarget);
+            List<String> ppgListTarget = new ArrayList<String>();
+            for(PortPairGroupEntity ppg_local : sfcTarget.getPortPairGroups()) {
+                ppgListTarget.add(ppg_local.getElementId());
+            }
+            Assert.assertEquals("The list of port pair group ids is different than expected", ppgListSrc, ppgListTarget);
+            return null;
+        });
+    }
+
+    @Test
+    public void testDeleteNetworkElementWhenSfcToDeleteIsNotFound_ThrowsIllegalArgumentException() throws Exception {
+        // Arrange
+
+        DefaultNetworkPort ne = new DefaultNetworkPort();
+        this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
+
+        ne.setElementId("bad-id");
+
+        this.exception.expect(IllegalArgumentException.class);
+        this.exception
+                .expectMessage(String.format("Cannot find %s by id: %s!", "Service Function Chain", ne.getElementId()));
+
+        // Act
+        this.redirApi.deleteNetworkElement(ne);
+    }
+
+    @Test
+    public void testDeleteNetworkElementWhenSfcElementIsNull_ThrowsIllegalArgumentException() throws Exception {
+        // Arrange
+        this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
+
+        this.exception.expect(IllegalArgumentException.class);
+        this.exception.expectMessage(String.format("null passed for %s !", "Service Function Chain Id"));
+
+        // Act
+        this.redirApi.deleteNetworkElement(null);
+    }
+
+    @Test
+    public void testDeleteNetworkElementWhenSfcIdIsNull_ThrowsIllegalArgumentException() throws Exception {
+        // Arrange
+        DefaultNetworkPort ne = new DefaultNetworkPort();
+        this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
+
+        this.exception.expect(IllegalArgumentException.class);
+        this.exception.expectMessage(String.format("null passed for %s !", "Service Function Chain Id"));
+
+        // Act
+        this.redirApi.deleteNetworkElement(ne);
+    }
+
+    @Test
+    public void testDeleteNetworkElement_VerifySuccessful() throws Exception {
+        // Arrange
+        persistInspectionPortAndSfc();
+        String localSfcId = this.sfc.getElementId();
+
+        DefaultNetworkPort ne = new DefaultNetworkPort();
+        this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
+
+        ne.setElementId(this.sfc.getElementId());
+
+        // Act
+        this.redirApi.deleteNetworkElement(ne);
+        this.txControl.required(() -> {
+            ServiceFunctionChainEntity sfc_t = this.em.find(ServiceFunctionChainEntity.class, localSfcId);
+            assertNull("SFC still exist after deletion", sfc_t);
+            return null;
+        });
+    }
+
+    @Test
+    public void testGetNetworkElementWhenSfcElementIsNull_ThrowsIllegalArgumentException() throws Exception {
+        // Arrange
+        this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
+
+        this.exception.expect(IllegalArgumentException.class);
+        this.exception.expectMessage(String.format("null passed for %s !", "Service Function Chain Id"));
+
+        // Act
+        this.redirApi.getNetworkElements(null);
+    }
+
+    @Test
+    public void testGetNetworkElementWhenSfcIdIsNull_ThrowsIllegalArgumentException() throws Exception {
+        // Arrange
+        DefaultNetworkPort ne = new DefaultNetworkPort();
+        this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
+
+        this.exception.expect(IllegalArgumentException.class);
+        this.exception.expectMessage(String.format("null passed for %s !", "Service Function Chain Id"));
+
+        // Act
+        this.redirApi.getNetworkElements(ne);
+    }
+
+    @Test
+    public void testGetNetworkElementWhenSfcGetIsNotFound_ThrowsIllegalArgumentException() throws Exception {
+        // Arrange
+
+        DefaultNetworkPort ne = new DefaultNetworkPort();
+        this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
+
+        ne.setElementId("bad-id");
+
+        this.exception.expect(IllegalArgumentException.class);
+        this.exception.expectMessage(String.format("Cannot find %s by id: %s!", "Service Function Chain", ne.getElementId()));
+
+        // Act
+        this.redirApi.getNetworkElements(ne);
+    }
+
+    @Test
+    public void testGetNetworkElement_VerifySuccessful() throws Exception {
+        // Arrange
+        persistInspectionPortAndSfc();
+
+        DefaultNetworkPort ne = new DefaultNetworkPort();
+        this.redirApi = new NeutronSfcSdnRedirectionApi(this.txControl, this.em);
+
+        ne.setElementId(this.sfc.getElementId());
+
+        // Act
+        List<NetworkElement> neResponseList = this.redirApi.getNetworkElements(ne);
+        assertNotNull("SFC chain List is Empty", neResponseList);
+    }
+
     private InspectionPortEntity persistInspectionPort() {
         return this.txControl.required(() -> {
             this.em.persist(this.ppg);
@@ -699,6 +1098,43 @@ public class OSGiIntegrationTest {
 
             this.em.merge(this.ppg);
             return this.inspectionPort;
+        });
+    }
+
+
+    private List<PortPairGroupEntity> persistNInspectionPort(int count) {
+        List<PortPairGroupEntity> ppgList = new ArrayList<PortPairGroupEntity>();
+        for(int i=0;i<count;i++) {
+            InspectionPortEntity insp = new InspectionPortEntity();
+            PortPairGroupEntity ppg_n= new PortPairGroupEntity();
+
+            this.txControl.required(() -> {
+                    this.em.persist(ppg_n);
+
+                    insp.setPortPairGroup(ppg_n);
+                    this.em.persist(insp);
+
+                    ppg_n.getPortPairs().add(insp);
+                    this.em.merge(ppg_n);
+                    return null;
+            });
+            ppgList.add(ppg_n);
+        }
+        return ppgList;
+    }
+
+    private ServiceFunctionChainEntity persistNppgsInSfc(List<PortPairGroupEntity> ppgList) {
+
+        return this.txControl.required(() -> {
+            for(PortPairGroupEntity ppg : ppgList) {
+                this.sfc.getPortPairGroups().add(ppg);
+                this.em.persist(this.sfc);
+
+                ppg.setServiceFunctionChain(this.sfc);
+                this.em.merge(ppg);
+            }
+
+            return this.sfc;
         });
     }
 
