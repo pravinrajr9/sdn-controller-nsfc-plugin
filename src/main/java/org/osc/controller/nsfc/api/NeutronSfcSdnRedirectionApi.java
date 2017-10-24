@@ -68,10 +68,7 @@ public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
 
         if (portId != null) {
             try {
-                return this.txControl.required(() -> {
-                    InspectionPortEntity ipEntity = this.utils.txInspectionPortEntityById(portId);
-                    return ipEntity;
-                });
+                return this.txControl.required(() -> this.utils.txInspectionPortEntityById(portId));
             } catch (Exception e) {
                 LOG.warn("Failed to retrieve InspectionPort by id! Trying by ingress and egress " + inspectionPort);
             }
@@ -82,8 +79,7 @@ public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
         NetworkElement ingress = inspectionPort.getIngressPort();
         NetworkElement egress = inspectionPort.getEgressPort();
 
-        InspectionPortEntity ipEntity = this.utils.findInspectionPortByNetworkElements(ingress, egress);
-        return ipEntity;
+        return this.utils.findInspectionPortByNetworkElements(ingress, egress);
     }
 
     @Override
@@ -140,7 +136,7 @@ public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
             PortPairGroupEntity ppg = ((InspectionPortEntity) foundInspectionPort).getPortPairGroup();
             this.utils.removeSingleInspectionPort(foundInspectionPort.getElementId());
             ppg.getPortPairs().remove(foundInspectionPort);
-            if(ppg.getPortPairs().size() == 0) {
+            if(ppg.getPortPairs().isEmpty()) {
                 this.utils.removePortPairGroup(ppg.getElementId());
             }
         } else {
@@ -148,7 +144,7 @@ public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
             NetworkElement egress = inspectionPort.getEgressPort();
 
             LOG.warn(String.format("Attempt to remove nonexistent Inspection Port for ingress %s and egress %s",
-                    "" + ingress, "" + egress));
+                    ingress, egress));
         }
     }
 
@@ -162,7 +158,7 @@ public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
         this.utils.throwExceptionIfNullElementAndId(inspectionPort, "Inspection port");
 
         LOG.info(String.format("Installing Inspection Hook for (Inspected Port %s ; Inspection Port %s):",
-                "" + inspectedPort, "" + inspectionPort));
+                inspectedPort, inspectionPort));
 
         ServiceFunctionChainEntity sfc = this.utils.findBySfcId(inspectionPort.getElementId());
         this.utils.throwExceptionIfCannotFindById(sfc, "Service Function Chain", inspectionPort.getElementId());
@@ -240,9 +236,7 @@ public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
             return null;
         }
 
-        return this.txControl.required(() -> {
-            return this.em.find(InspectionHookEntity.class, inspectionHookId);
-        });
+        return this.txControl.required(() -> this.em.find(InspectionHookEntity.class, inspectionHookId));
     }
 
     // SFC methods

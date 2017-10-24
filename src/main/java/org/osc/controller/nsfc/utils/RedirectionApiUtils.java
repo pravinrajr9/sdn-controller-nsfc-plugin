@@ -70,7 +70,7 @@ public class RedirectionApiUtils {
         NetworkElementEntity egressEntity = null;
         throwExceptionIfNullElement(egress, "egress element.");
 
-        if (ingressEntity != null && ingressEntity.getElementId().equals(egress.getElementId())) {
+        if (ingressEntity.getElementId().equals(egress.getElementId())) {
             egressEntity = ingressEntity;
         } else {
             egressEntity = makeNetworkElementEntity(egress);
@@ -98,9 +98,7 @@ public class RedirectionApiUtils {
 
     public PortPairGroupEntity findByPortPairgroupId(String ppgId) {
 
-        return this.txControl.required(() -> {
-            return this.em.find(PortPairGroupEntity.class, ppgId);
-        });
+        return this.txControl.required(() -> this.em.find(PortPairGroupEntity.class, ppgId));
     }
 
     public void removePortPairGroup(String ppgId) {
@@ -114,9 +112,7 @@ public class RedirectionApiUtils {
 
     public ServiceFunctionChainEntity findBySfcId(String sfcId) {
 
-        return this.txControl.required(() -> {
-            return this.em.find(ServiceFunctionChainEntity.class, sfcId);
-        });
+        return this.txControl.required(() -> this.em.find(ServiceFunctionChainEntity.class, sfcId));
     }
 
     public InspectionPortEntity findInspectionPortByNetworkElements(NetworkElement ingress, NetworkElement egress) {
@@ -135,7 +131,7 @@ public class RedirectionApiUtils {
         try {
             @SuppressWarnings("unchecked")
             List<InspectionPortEntity> ports = q.getResultList();
-            if (ports == null || ports.size() == 0) {
+            if (ports == null || ports.isEmpty()) {
                 LOG.warn(String.format("No Inspection Ports by ingress %s and egress %s", ingressId, egressId));
                 return null;
             } else if (ports.size() > 1) {
@@ -211,7 +207,7 @@ public class RedirectionApiUtils {
 
             @SuppressWarnings("unchecked")
             List<InspectionHookEntity> inspectionHooks = q.getResultList();
-            if (inspectionHooks == null || inspectionHooks.size() == 0) {
+            if (inspectionHooks == null || inspectionHooks.isEmpty()) {
                 LOG.warn(String.format("No Inspection hooks by inspected %s and sfc %s", inspectedId, sfc));
                 return null;
             } else if (inspectionHooks.size() > 1) {
@@ -225,7 +221,7 @@ public class RedirectionApiUtils {
     }
 
     public List<PortPairGroupEntity> validateAndAdd(List<NetworkElement> portPairGroups, ServiceFunctionChainEntity sfc) {
-        List<PortPairGroupEntity> ppgList = new ArrayList<PortPairGroupEntity>();
+        List<PortPairGroupEntity> ppgList = new ArrayList<>();
 
         for (NetworkElement ne : portPairGroups) {
             throwExceptionIfNullElementAndId(ne, "Port Pair Group Id");
