@@ -64,7 +64,7 @@
             <artifactId>sdn-controller-api</artifactId>
             <version>2.0.0</version>
         </dependency>
-        <!-- An OSGi bundle version of the AOP dependency -->
+        <!-- An OSGi bundle version of the AOP dependency. -->
         <dependency>
             <groupId>org.apache.servicemix.bundles</groupId>
             <artifactId>org.apache.servicemix.bundles.aopalliance</artifactId>
