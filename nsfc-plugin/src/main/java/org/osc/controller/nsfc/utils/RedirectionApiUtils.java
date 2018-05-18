@@ -20,9 +20,11 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.openstack4j.api.Builders;
 import org.openstack4j.model.network.Port;
+import org.openstack4j.model.network.IP;
 import org.openstack4j.model.network.ext.FlowClassifier;
 import org.openstack4j.model.network.ext.PortChain;
 import org.openstack4j.model.network.ext.PortPair;
@@ -111,14 +113,33 @@ public class RedirectionApiUtils {
         return pcOpt.orElse(null);
     }
 
-    public FlowClassifier buildFlowClassifier(String inspectedPortId) {
+    public FlowClassifier buildFlowClassifier(String inspectedPortId, String defaultGatewayInterfacePortId) {
         FlowClassifier flowClassifier;
 
         flowClassifier = Builders.flowClassifier()
                              .description("Flow Classifier created by OSC")
                              .name("OSCFlowClassifier-" + UUID.randomUUID().toString().substring(0, 8))
+                             .logicalSourcePort(defaultGatewayInterfacePortId)
                              .logicalDestinationPort(inspectedPortId)
                              .build();
         return flowClassifier;
+    }
+    
+    public Port fetchDefaultGatewayPort(String inspectedPortId) {
+    	Port inspectedPort = this.osCalls.getPort(inspectedPortId);
+    	List<? extends IP> fixedIPs = inspectedPort.getFixedIps().stream().collect(Collectors.toList());
+    	String subnetId = fixedIPs.get(0).getSubnetId();
+    	List<? extends Port> routerInterfacePorts = this.osCalls.listPorts().stream()
+    			                                        .filter(p -> p.getDeviceOwner().equals("network:router_interface"))
+    			                                        .collect(Collectors.toList());
+
+    	List<? extends Port> defalutGatewayPortList = routerInterfacePorts.stream()
+    			                      .filter(p -> p.getFixedIps().stream().collect(Collectors.toList()).get(0).getSubnetId().equals(subnetId))
+    			                      .collect(Collectors.toList());
+    	
+    	if (defalutGatewayPortList.size() != 1) {
+    		throw new IllegalStateException();
+    	}
+    	return defalutGatewayPortList.get(0);
     }
 }

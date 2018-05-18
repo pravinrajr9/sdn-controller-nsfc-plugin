@@ -137,6 +137,10 @@ public class OsCalls {
     public Port getPort(String portId) {
         return this.osClient.networking().port().get(portId);
     }
+    
+    public List<? extends Port> listPorts(){
+    	return this.osClient.networking().port().list();
+    }
 
     public PortChain updatePortChain(String portChainId, PortChain portChain) {
         checkArgument(portChainId != null, "null passed for %s !", "Port Chain Id");

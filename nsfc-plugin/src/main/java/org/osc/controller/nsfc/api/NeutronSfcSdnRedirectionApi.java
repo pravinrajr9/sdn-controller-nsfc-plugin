@@ -230,7 +230,8 @@ public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
         checkArgument(portChain != null,
                       "Cannot find %s by id: %s!", "Service Function Chain", inspectionPortElement.getElementId());
 
-        FlowClassifier flowClassifier = this.utils.buildFlowClassifier(inspectedPortElement.getElementId());
+        String defaultGatewayInterfacePortId = this.utils.fetchDefaultGatewayPort(inspectedPortElement.getElementId()).getId();
+        FlowClassifier flowClassifier = this.utils.buildFlowClassifier(inspectedPortElement.getElementId(), defaultGatewayInterfacePortId);
 
         flowClassifier = this.osCalls.createFlowClassifier(flowClassifier);
         portChain.getFlowClassifiers().add(flowClassifier.getId());
