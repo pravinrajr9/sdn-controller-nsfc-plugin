@@ -85,6 +85,13 @@ public abstract class AbstractNeutronSfcPluginTest {
         egressPortElement.setElementId(egressPort.getId());
     }
 
+    protected void persistdefaultGatewayPort() {
+        defaultGatewayPort = portService.create(Builders.port().macAddress(defaultGatewayPortElement.getMacAddresses().get(0))
+                                        .fixedIp(defaultGatewayPortElement.getPortIPs().get(0), "mySubnet")
+                                        .deviceOwner("network:router_interface").build());
+        defaultGatewayPortElement.setElementId(defaultGatewayPort.getId());
+    }
+    
     protected void persistInspectionPort(boolean withIngress, boolean withEgress) {
         if (withIngress) {
             portPair = portPair.toBuilder().ingressId(ingressPort.getId()).build();

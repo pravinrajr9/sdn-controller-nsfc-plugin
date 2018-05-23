@@ -130,16 +130,17 @@ public class RedirectionApiUtils {
     	List<? extends IP> fixedIPs = inspectedPort.getFixedIps().stream().collect(Collectors.toList());
     	String subnetId = fixedIPs.get(0).getSubnetId();
     	List<? extends Port> routerInterfacePorts = this.osCalls.listPorts().stream()
-    			                                        .filter(p -> p.getDeviceOwner().equals("network:router_interface"))
+    			                                        .filter(p -> p.getDeviceOwner() != null 
+    			                                                && p.getDeviceOwner().equals("network:router_interface"))
     			                                        .collect(Collectors.toList());
 
-    	List<? extends Port> defalutGatewayPortList = routerInterfacePorts.stream()
-    			                      .filter(p -> p.getFixedIps().stream().collect(Collectors.toList()).get(0).getSubnetId().equals(subnetId))
-    			                      .collect(Collectors.toList());
-    	
-    	if (defalutGatewayPortList.size() != 1) {
-    		throw new IllegalStateException();
+        if (routerInterfacePorts.size() == 0) {
+    		return null;
     	}
-    	return defalutGatewayPortList.get(0);
+    	
+    	Port defaultGatewayPort = routerInterfacePorts.stream()
+                .filter(p -> p.getFixedIps().stream().collect(Collectors.toList()).get(0).getSubnetId().equals(subnetId)).findAny().get();
+    	
+    	return defaultGatewayPort;
     }
 }

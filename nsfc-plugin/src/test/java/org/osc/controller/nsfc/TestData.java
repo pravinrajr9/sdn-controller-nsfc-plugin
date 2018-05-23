@@ -57,6 +57,10 @@ class TestData {
     private static final String INSPMAC1_STR = "aa:aa:aa:bb:cc:01";
 
     private static final String INSPADDR_STR = "10.4.5.6";
+    
+    private static final String GATEWAYIFACEADDR1_STR = "10.0.0.1";
+    
+    private static final String GATEWAYIFACEMACADDR1_STR = "aa:aa:aa:bb:cc:01";
 
     private static final Random ID_GENERATOR = new Random(System.currentTimeMillis());
 
@@ -68,13 +72,15 @@ class TestData {
     public static NetworkElementImpl ingressPortElement;
     public static NetworkElementImpl egressPortElement;
     public static NetworkElementImpl inspectedPortElement;
-
+    public static NetworkElementImpl defaultGatewayPortElement;
+    
     public static PortChain portChain;
     public static PortPair portPair;
     public static PortPairGroup portPairGroup;
     public static Port ingressPort;
     public static Port egressPort;
     public static Port inspectedPort;
+    public static Port defaultGatewayPort;
 
     public static PortService portService;
     public static PortChainService portChainService;
@@ -97,7 +103,12 @@ class TestData {
         inspectedPortElement.setElementId("iNsPeCtEdPoRt");
         inspectedPortElement.setMacAddresses(asList(INSPMAC1_STR));
         inspectedPortElement.setPortIPs(asList(INSPADDR_STR));
-
+        
+        defaultGatewayPortElement = new NetworkElementImpl();
+        defaultGatewayPortElement.setElementId("defaultgateway");
+        defaultGatewayPortElement.setMacAddresses(asList(GATEWAYIFACEMACADDR1_STR));
+        defaultGatewayPortElement.setPortIPs(asList(GATEWAYIFACEADDR1_STR));
+        
         ppgElement = new PortPairGroupElement();
 
         inspectionPort = new PortPairElement();

@@ -212,7 +212,7 @@ public class RedirectionApiUtilsTest extends AbstractNeutronSfcPluginTest {
 
         // Arrange.
         String inspectedPortId = "somethingorother";
-        String defaultGatewayPortId = "something";
+        String defaultGatewayPortId = "somethingorothes";
         // Act
         FlowClassifier flowClassifier = this.utils.buildFlowClassifier(inspectedPortId, defaultGatewayPortId);
 

@@ -254,6 +254,7 @@ public class NeutronSfcSdnRedirectionApiTest extends AbstractNeutronSfcPluginTes
         persistInspectedPort();
         persistIngress();
         persistEgress();
+        persistdefaultGatewayPort();
         persistInspectionPort(true, true);
         persistPortPairGroup();
         persistPortChainAndSfcElement();
@@ -303,6 +304,7 @@ public class NeutronSfcSdnRedirectionApiTest extends AbstractNeutronSfcPluginTes
         persistInspectionPort(true, true);
         persistPortPairGroup();
         persistPortChainAndSfcElement();
+        persistdefaultGatewayPort();
 
         String hookId = this.redirApi.installInspectionHook(inspectedPortElement, sfc, 0L, VLAN, 0L, NA);
         assertNotNull(hookId);
@@ -348,6 +350,7 @@ public class NeutronSfcSdnRedirectionApiTest extends AbstractNeutronSfcPluginTes
         persistInspectionPort(true, true);
         persistPortPairGroup();
         persistPortChainAndSfcElement();
+        persistdefaultGatewayPort();
 
         String hookId = this.redirApi.installInspectionHook(inspectedPortElement, sfc, 0L, VLAN, 0L, NA);
         assertNotNull(this.redirApi.getInspectionHook(hookId));
