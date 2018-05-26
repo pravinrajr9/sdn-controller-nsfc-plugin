@@ -47,7 +47,7 @@ public class OsCalls {
         try {
             flowClassifier = this.osClient.sfc().flowclassifiers().create(flowClassifier);
             if (flowClassifier == null) {
-                throw new RuntimeException("Create Flow Classifier operation returned null");
+                throw new RuntimeException("Create Flow Classifier operation returned null, Error from OpenStack: Not Found");
             }
         } catch (Exception e) {
             throw new SdnControllerResponseNsfcException(Create, FlowClassifier.class, e);
@@ -64,7 +64,7 @@ public class OsCalls {
         try {
             portChain = this.osClient.sfc().portchains().create(portChain);
             if (portChain == null) {
-                throw new RuntimeException("Create Port Chain operation returned null");
+                throw new RuntimeException("Create Port Chain operation returned null, Error from OpenStack: Not Found");
             }
         } catch (Exception e) {
             throw new SdnControllerResponseNsfcException(Create, PortChain.class, e);
@@ -80,7 +80,7 @@ public class OsCalls {
         try {
             portPairGroup = this.osClient.sfc().portpairgroups().create(portPairGroup);
             if (portPairGroup == null) {
-                throw new RuntimeException("Create Port Pair Group operation returned null");
+                throw new RuntimeException("Create Port Pair Group operation returned null, Error from OpenStack: Not Found");
             }
         } catch (Exception e) {
             throw new SdnControllerResponseNsfcException(Create, PortPairGroup.class, e);
@@ -96,7 +96,7 @@ public class OsCalls {
         try {
             portPair = this.osClient.sfc().portpairs().create(portPair);
             if (portPair == null) {
-                throw new RuntimeException("Create Port Pair operation returned null");
+                throw new RuntimeException("Create Port Pair operation returned null, Error from OpenStack: Not Found");
             }
         } catch (Exception e) {
             throw new SdnControllerResponseNsfcException(Create, PortPair.class, e);
@@ -152,7 +152,8 @@ public class OsCalls {
         try {
             portChain = this.osClient.sfc().portchains().update(portChainId, portChain);
             if (portChain == null) {
-                throw new RuntimeException("Update Port Chain operation returned null for port chain " + portChainId);
+                throw new RuntimeException("Update Port Chain operation returned null for port chain " + portChainId
+                		                   + ", Error from OpenStack: Not Found");
             }
         } catch (Exception e) {
             throw new SdnControllerResponseNsfcException(Update, PortChain.class, e);
@@ -171,7 +172,8 @@ public class OsCalls {
         try {
             portPairGroup = this.osClient.sfc().portpairgroups().update(portPairGroupId, portPairGroup);
             if (portPairGroup == null) {
-                throw new RuntimeException("Update Port Pair Group operation returned null for port pair" + portPairGroupId);
+                throw new RuntimeException("Update Port Pair Group operation returned null for port pair" + portPairGroupId
+                		                   + ", Error from OpenStack: Not Found");
             }
         } catch (Exception e) {
             throw new SdnControllerResponseNsfcException(Update, PortPairGroup.class, e);
