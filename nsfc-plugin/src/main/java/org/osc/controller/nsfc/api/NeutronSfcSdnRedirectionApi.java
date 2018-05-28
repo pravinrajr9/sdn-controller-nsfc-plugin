@@ -24,6 +24,7 @@ import static org.osc.controller.nsfc.utils.ArgumentCheckUtil.throwExceptionIfNu
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -358,7 +359,9 @@ public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
         PortChain portChain = Builders.portChain()
                                     .description("Port Chain object created by OSC")
                                     .name("OSCPortChain-" + UUID.randomUUID().toString().substring(0, 8))
-                                    .chainParameters(emptyMap())
+                                    .chainParameters(new HashMap<String, String>() {{
+                                        put("symmetric","true");
+                                     }})
                                     .flowClassifiers(emptyList())
                                     .portPairGroups(portPairGroupIds)
                                     .build();
