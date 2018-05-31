@@ -234,6 +234,7 @@ public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
         checkArgument(portChain != null,
                       "Cannot find %s by id: %s!", "Service Function Chain", inspectionPortElement.getElementId());
 
+        // TODO: logical source port is required for creating flowclassifier due to limitation in Neutron SFC
         Port defaultGatewayInterfacePort = this.utils.fetchDefaultGatewayPort(inspectedPortElement.getElementId());
         checkArgument(defaultGatewayInterfacePort != null && defaultGatewayInterfacePort.getId() != null,
                       "null passed for %s !", "Service Function Chain");
