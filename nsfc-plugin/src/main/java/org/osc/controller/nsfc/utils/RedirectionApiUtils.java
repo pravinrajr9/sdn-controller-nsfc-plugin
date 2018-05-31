@@ -37,6 +37,7 @@ import org.slf4j.LoggerFactory;
 public class RedirectionApiUtils {
 
     private static final Logger LOG = LoggerFactory.getLogger(RedirectionApiUtils.class);
+    private static final String QUERY_PARAM_ROUTER_DEVICE_OWNER = "network:router_interface";
 
     private OsCalls osCalls;
 
@@ -131,15 +132,22 @@ public class RedirectionApiUtils {
     	String subnetId = fixedIPs.get(0).getSubnetId();
     	List<? extends Port> routerInterfacePorts = this.osCalls.listPorts().stream()
     			                                        .filter(p -> p.getDeviceOwner() != null 
-    			                                                && p.getDeviceOwner().equals("network:router_interface"))
-    			                                        .collect(Collectors.toList());
+                                                            && p.getDeviceOwner().equals(QUERY_PARAM_ROUTER_DEVICE_OWNER))
+                                                        .collect(Collectors.toList());
 
         if (routerInterfacePorts.size() == 0) {
     		return null;
     	}
     	
     	Port defaultGatewayPort = routerInterfacePorts.stream()
-                .filter(p -> p.getFixedIps().stream().collect(Collectors.toList()).get(0).getSubnetId().equals(subnetId)).findAny().get();
+                                      .filter(p -> p.getFixedIps()
+                                          .stream()
+                                          .collect(Collectors.toList())
+                                          .get(0)
+                                          .getSubnetId()
+                                          .equals(subnetId))
+                                          .findAny()
+                                          .get();
     	
     	return defaultGatewayPort;
     }

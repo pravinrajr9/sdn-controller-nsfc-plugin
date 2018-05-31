@@ -58,6 +58,9 @@ import org.slf4j.LoggerFactory;
 public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
 
     private static final Logger LOG = LoggerFactory.getLogger(NeutronSfcSdnRedirectionApi.class);
+    
+    private static final String CHAIN_PARAM_SYMMETRIC_TRAFFIC_FLOW = "symmetric";
+    private static final String SYMMETRIC_CHAIN_ENABLED = "true";
 
     private RedirectionApiUtils utils;
     private OsCalls osCalls;
@@ -360,7 +363,7 @@ public class NeutronSfcSdnRedirectionApi implements SdnRedirectionApi {
                                     .description("Port Chain object created by OSC")
                                     .name("OSCPortChain-" + UUID.randomUUID().toString().substring(0, 8))
                                     .chainParameters(new HashMap<String, String>() {{
-                                        put("symmetric","true");
+                                        put(CHAIN_PARAM_SYMMETRIC_TRAFFIC_FLOW, SYMMETRIC_CHAIN_ENABLED);
                                      }})
                                     .flowClassifiers(emptyList())
                                     .portPairGroups(portPairGroupIds)
